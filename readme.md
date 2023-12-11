@@ -76,14 +76,14 @@ if not os.path.exists(asset_zip_path):
 Image(filename="checkerboard_18x18.png")
 ```
 
- ![checkerboard_18x18](/home/memorycancel/code/opencv/01_getting_started_with_images/checkerboard_18x18.png)
+ ![checkerboard_18x18](01_getting_started_with_images/checkerboard_18x18.png)
 
 ```python
 # Display 84x84 pixel image.
 Image(filename="checkerboard_84x84.jpg")
 ```
 
- ![checkerboard_84x84](/home/memorycancel/code/opencv/01_getting_started_with_images/checkerboard_84x84.jpg)
+ ![checkerboard_84x84](01_getting_started_with_images/checkerboard_84x84.jpg)
 
 ### 01-03 使用`OpenCV`读取图片
 
@@ -156,7 +156,7 @@ plt.imshow(cb_img)
 # <matplotlib.image.AxesImage at 0x2dd1ffc36d0>
 ```
 
- ![AxesImage](/home/memorycancel/code/opencv/01_getting_started_with_images/checkerboard_scale_color.png)
+ ![AxesImage](01_getting_started_with_images/checkerboard_scale_color.png)
 
 #### 发生了啥？
 
@@ -167,7 +167,7 @@ plt.imshow(cb_img)
 plt.imshow(cb_img, cmap="gray")
 ```
 
- ![0x2dd202324d0](/home/memorycancel/code/opencv/01_getting_started_with_images/checkerboard_scale_grey.png)
+ ![0x2dd202324d0](01_getting_started_with_images/checkerboard_scale_grey.png)
 
 #### 另外一个例子
 
@@ -201,7 +201,7 @@ plt.imshow(cb_img_fuzzy, cmap="gray")
  [  0   0   9  22   1 132 233 255 253 253 254 230 129   1  26   2   0   0]]
 ```
 
- ![0x2dd202b62f0](/home/memorycancel/code/opencv/01_getting_started_with_images/checkerboard_fuzzy.png)
+ ![0x2dd202b62f0](01_getting_started_with_images/checkerboard_fuzzy.png)
 
 ### 01-05 处理彩色图片
 
@@ -212,7 +212,7 @@ plt.imshow(cb_img_fuzzy, cmap="gray")
 Image("coca-cola-logo.png")
 ```
 
- ![coke](/home/memorycancel/code/opencv/01_getting_started_with_images/coca-cola-logo.png)
+ ![coke](01_getting_started_with_images/coca-cola-logo.png)
 
 ### 01-06 读取和显示彩色图片
 
@@ -233,7 +233,7 @@ print("Data type of image is:", coke_img.dtype) # Data type of image is: uint8
 plt.imshow(coke_img)
 ```
 
- ![0x2dd2131aec0](/home/memorycancel/code/opencv/01_getting_started_with_images/coca-cola-logo-blue.png)
+ ![0x2dd2131aec0](01_getting_started_with_images/coca-cola-logo-blue.png)
 
 #### 发生了啥？
 
@@ -244,7 +244,7 @@ coke_img_channels_reversed = coke_img[:, :, ::-1]
 plt.imshow(coke_img_channels_reversed)
 ```
 
- ![coca-cola-logo-normal](/home/memorycancel/code/opencv/01_getting_started_with_images/coca-cola-logo-normal.png)
+ ![coca-cola-logo-normal](01_getting_started_with_images/coca-cola-logo-normal.png)
 
 ### 01-08 分割和合并颜色通道
 
@@ -271,7 +271,7 @@ plt.imshow(imgMerged[:, :, ::-1])
 plt.title("Merged Output")
 ```
 
- ![split](/home/memorycancel/code/opencv/01_getting_started_with_images/split.png)
+ ![split](01_getting_started_with_images/split.png)
 
 ### 01-09 转换为不同的色彩空间 BGR2RGB
 
@@ -294,7 +294,7 @@ img_NZ_rgb = cv2.cvtColor(img_NZ_bgr, cv2.COLOR_BGR2RGB)
 plt.imshow(img_NZ_rgb)
 ```
 
- ![rgb](/home/memorycancel/code/opencv/01_getting_started_with_images/BGR2RGB.png)
+ ![rgb](01_getting_started_with_images/BGR2RGB.png)
 
 ### 01-10 转换成BGR2HSV色彩空间
 
@@ -309,7 +309,7 @@ plt.subplot(143);plt.imshow(v, cmap="gray");plt.title("V Channel");
 plt.subplot(144);plt.imshow(img_NZ_rgb);   plt.title("Original");
 ```
 
- ![hsv](/home/memorycancel/code/opencv/01_getting_started_with_images/HSV.png)
+ ![hsv](01_getting_started_with_images/HSV.png)
 
 ### 01-11 修改图像单个空间
 
@@ -325,7 +325,7 @@ plt.subplot(143);plt.imshow(v, cmap="gray");plt.title("V Channel");
 plt.subplot(144);plt.imshow(img_NZ_rgb);   plt.title("Original");
 ```
 
- ![modify_hsv](/home/memorycancel/code/opencv/01_getting_started_with_images/modify_hsv.png)
+ ![modify_hsv](01_getting_started_with_images/modify_hsv.png)
 
 ### 01-12 保存图片
 
@@ -347,7 +347,7 @@ cv2.imwrite("New_Zealand_Lake_SAVED.png", img_NZ_bgr)
 Image(filename='New_Zealand_Lake_SAVED.png') 
 ```
 
- ![save](/home/memorycancel/code/opencv/01_getting_started_with_images/New_Zealand_Lake.jpg)
+ ![save](01_getting_started_with_images/New_Zealand_Lake.jpg)
 
 ```python
 # read the image as Color
