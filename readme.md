@@ -576,7 +576,7 @@ plt.imshow(resized_cropped_region)
 
  ![resized_cropped_region](02_basic_image_manipulations/resized_cropped_region.png)
 
-### 02-05-03 场景三：调整大小同时保持纵横比(按比例缩放)
+#### 02-05-03 场景三：调整大小同时保持纵横比(按比例缩放)
 
 ```python
 desired_width = 100
