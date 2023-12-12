@@ -6,7 +6,7 @@
 
 官方文档：https://docs.opencv.org
 
-## 01 图像基本处理
+## 01 图像基本读写
 
 代码见文件夹：`01_getting_started_with_images`
 
@@ -273,9 +273,9 @@ plt.title("Merged Output")
 
  ![split](01_getting_started_with_images/split.png)
 
-### 01-09 转换为不同的色彩空间 BGR2RGB
+### 01-09 转换为不同的色彩空间 `BGR2RGB`
 
-`cv2.cvtColor()` 将图像从一种颜色空间转换为另一种颜色空间。该函数将输入图像从一种颜色空间转换为另一种颜色空间。在进行 RGB  颜色空间转换时，应明确指定通道的顺序（RGB 或 BGR）。请注意，`OpenCV` 中的默认颜色格式通常称为 RGB，但实际上是  BGR（字节反转）。因此，`标准（24 位）`彩色图像中的第一个字节将是 8  位蓝色分量，第二个字节将是绿色，第三个字节将是红色。第四、第五和第六字节将是第二个像素（蓝色，然后是绿色，然后是红色），依此类推。
+`cv2.cvtColor()` 将图像从一种颜色空间转换为另一种颜色空间。该函数将输入图像从一种颜色空间转换为另一种颜色空间。在进行 RGB  颜色空间转换时，应明确指定通道的顺序（`RGB` 或 `BGR`）。请注意，`OpenCV` 中的默认颜色格式通常称为 RGB，但实际上是  BGR（字节反转）。因此，`标准（24 位）`彩色图像中的第一个字节将是 8  位蓝色分量，第二个字节将是绿色，第三个字节将是红色。第四、第五和第六字节将是第二个像素（蓝色，然后是绿色，然后是红色），依此类推。
 
 函数语法：
 
@@ -285,7 +285,7 @@ plt.title("Merged Output")
 
 该函数有 2 个必需参数：
 
-1. `src` 输入图像：8 位无符号、16 位无符号（CV_16UC...）或单精度浮点。
+1. `src` 输入图像：8 位无符号、16 位无符号（`CV_16UC`...）或单精度浮点。
 2. 代码颜色空间转换代码（请参阅 `ColorConversionCodes`）。
 
 ```python
@@ -296,7 +296,7 @@ plt.imshow(img_NZ_rgb)
 
  ![rgb](01_getting_started_with_images/BGR2RGB.png)
 
-### 01-10 转换成BGR2HSV色彩空间
+### 01-10 转换成`BGR2HSV`色彩空间
 
 ```python
 img_hsv = cv2.cvtColor(img_NZ_bgr, cv2.COLOR_BGR2HSV)
@@ -357,5 +357,271 @@ print("img_NZ_bgr shape (H, W, C) is:", img_NZ_bgr.shape) #img_NZ_bgr shape (H, 
 img_NZ_gry = cv2.imread("New_Zealand_Lake_SAVED.png", cv2.IMREAD_GRAYSCALE)
 print("img_NZ_gry shape (H, W) is:", img_NZ_gry.shape) # img_NZ_gry shape (H, W) is: (600, 840)
 ```
+
+## 02 图像基本处理
+
+以下我们将介绍如何执行图像转换，包括：
+
++ 访问和操作图像像素 Accessing
++ 调整图像大小 Resizing
++ 裁剪 Cropping
++ 翻转 Flipping
+
+### 02-01 下载物料
+
+引入依赖
+
+```python
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+from IPython.display import Image
+# 下载函数：
+```
+
+```python
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    # Downloading zip file using urllib package.
+    urlretrieve(url, save_path)
+    try:
+        # Extracting zip file using the zipfile package.
+        with ZipFile(save_path) as z:
+            # Extract ZIP file contents in the same directory.
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/rys6f1vprily2bg/opencv_bootcamp_assets_NB2.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB2.zip")
+
+# Download if assest ZIP does not exists.
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+```
+
+执行函数：
+
+```shell
+conda activate opencv-env
+https_proxy=127.0.0.1:7890 python3 02_basic_image_manipulations.py 
+```
+
+打开原始棋盘图像：
+
+```python
+# 灰度模式读取图像
+cb_img = cv2.imread("checkerboard_18x18.png", 0)
+# 通过matplotlib以灰度模式展示图片
+plt.imshow(cb_img, cmap="gray")
+print(cb_img)
+```
+
+```shell
+[[  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]]
+```
+
+ ![cb_img_grey](01_getting_started_with_images/checkerboard_scale_grey.png)
+
+### 02-02 读取单个像素
+
+让我们看看如何读取图像中的像素。
+
+要访问 `numpy` 矩阵中的任何像素，您必须使用矩阵表示法，例如矩阵 [r,c]，其中 r 是行号，c 是列号。另请注意，该矩阵是从 0 开始索引的。
+
+例如，如果要访问第一个像素，则需要指定matrix[0,0]。让我们看一些例子。我们将从左上角打印一个黑色像素，从顶部中心打印一个白色像素。
+
+```python
+# 打印第一行的第一个像素
+print(cb_img[0, 0]) # 0
+# 打印第一行白方块内的第一个元素
+print(cb_img[0, 6]) # 255
+```
+
+### 02-03 修改图像像素
+
+我们可以用与上述相同的方式修改像素的强度值（深浅，值越小，颜色越深）。
+
+```python
+cb_img_copy = cb_img.copy()
+cb_img_copy[2, 2] = 200
+cb_img_copy[2, 3] = 200
+cb_img_copy[3, 2] = 200
+cb_img_copy[3, 3] = 200
+
+# 可以简写为以下一行：
+# cb_img_copy[2:3,2:3] = 200
+
+plt.imshow(cb_img_copy, cmap="gray")
+print(cb_img_copy)
+```
+
+```shell
+
+
+[[  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0 200 200   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0 200 200   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [255 255 255 255 255 255   0   0   0   0   0   0 255 255 255 255 255 255]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]
+ [  0   0   0   0   0   0 255 255 255 255 255 255   0   0   0   0   0   0]]
+
+
+```
+
+ ![modified_cb](02_basic_image_manipulations/modified_cb.png)
+
+### 02-04 剪裁图像
+
+裁剪图像只需选择图像的特定（像素）区域即可实现。
+
+先用`matplotlib`读取一张图：
+
+```python
+img_NZ_bgr = cv2.imread("New_Zealand_Boat.jpg", cv2.IMREAD_COLOR)
+img_NZ_rgb = img_NZ_bgr[:, :, ::-1]
+plt.imshow(img_NZ_rgb)
+# <matplotlib.image.AxesImage at 0x1c6c64c6890>
+```
+
+ ![boat_plot_img.png](02_basic_image_manipulations/boat_plot_img.png)
+
+#### 裁剪出（Crop out）图像中间位置
+
+```python
+cropped_region = img_NZ_rgb[200:400, 300:600]
+plt.imshow(cropped_region)
+# <matplotlib.image.AxesImage at 0x1c6c648b730>
+```
+
+ ![cropped_out_boat.png](02_basic_image_manipulations/cropped_out_boat.png)
+
+### 02-05 调整图像大小
+
+函数 `resize()` 将图像 `src` 的大小调整为指定大小。大小和类型源自 `src`、`dsize`、`fx` 和 `fy`。函数语法如下：
+
+```python
+dst = resize( src, dsize[, dst[, fx[, fy[, interpolation]]]] )
+```
+
+`dst`：输出图像；它的大小为 `dsize `（当它非零时）或根据 `src.size()`、`fx` 和 `fy` 计算的大小； `dst` 的类型与 `src` 的类型相同。该函数有 2 个必需参数：
+
+1. `src`：输入图像
+2. `dsize`：输出图像大小
+
+经常使用的可选参数包括：
+
+    1. `fx`：沿水平轴的比例因子；当它等于 0 时，计算为` (𝚍𝚘𝚞𝚋𝚕𝚎)𝚍𝚜𝚒𝚣𝚎.𝚠𝚒𝚍𝚝𝚑/𝚜𝚛𝚌.𝚌𝚘𝚕𝚜`
+    1. `fy`：沿垂直轴的比例因子；当它等于 0 时，计算为 `(𝚍𝚘𝚞𝚋𝚕𝚎)𝚍𝚜𝚒𝚣𝚎.𝚑𝚎𝚒𝚐𝚑𝚝/𝚜𝚛𝚌.𝚛𝚘𝚠𝚜`
+
+输出图像的大小为 `dsize `（当它非零时）或根据 `src.size()`、`fx `和 `fy` 计算的大小； `dst` 的类型与 `src` 的类型相同。
+
+#### 02-05-01 场景一：使用 `fx` 和 `fy` 指定缩放因子
+
+```python
+resized_cropped_region_2x = cv2.resize(cropped_region, None, fx=2, fy=2)
+plt.imshow(resized_cropped_region_2x)
+```
+
+可以观察到坐标都双倍了。
+
+ ![](02_basic_image_manipulations/resized_cropped_region_2x.png)
+
+#### 02-05-02 场景二：指定输出图像的精确尺寸
+
+```python
+desired_width = 100
+desired_height = 200
+dim = (desired_width, desired_height)
+# 将背景图像调整为徽标图像的大小
+resized_cropped_region = cv2.resize(cropped_region, dsize=dim, interpolation=cv2.INTER_AREA)
+plt.imshow(resized_cropped_region)
+```
+
+ ![resized_cropped_region](02_basic_image_manipulations/resized_cropped_region.png)
+
+### 02-05-03 场景三：调整大小同时保持纵横比(按比例缩放)
+
+```python
+desired_width = 100
+aspect_ratio = desired_width / cropped_region.shape[1]
+desired_height = int(cropped_region.shape[0] * aspect_ratio)
+dim = (desired_width, desired_height)
+resized_cropped_region = cv2.resize(cropped_region, dsize=dim, interpolation=cv2.INTER_AREA)
+plt.imshow(resized_cropped_region)
+```
+
+ ![resized_cropped_region_ratio](02_basic_image_manipulations/resized_cropped_region_ratio.png)
+
+#### 让我们实际显示（裁剪的）调整大小的图像。
+
+```python
+resized_cropped_region_2x = resized_cropped_region_2x[:, :, ::-1]
+cv2.imwrite("resized_cropped_region_2x_Image.png", resized_cropped_region_2x)
+Image(filename="resized_cropped_region_2x_Image.png")
+```
+
+ ![img](02_basic_image_manipulations/resized_cropped_region_2x_Image.png)
+
+### 02-06 翻转图像
+
+函数 `Flip` 以三种不同方式翻转数组（行索引和列索引从 0 开始），函数语法如下：
+
+`dst = cv.flip( src, flipCode )`
+
+`dst`：与 `src` 大小和类型相同的输出数组。该函数有 2 个必需参数：
+
+1. `src`：输入图像
+2. `FlipCode`：指定如何翻转数组的标志； 0 表示绕 `x` 轴翻转，正值（例如 1）表示绕 `y` 轴翻转。负值（例如 -1）表示绕两个轴翻转。
+
+```python
+img_NZ_rgb_flipped_horz = cv2.flip(img_NZ_rgb, 1)
+img_NZ_rgb_flipped_vert = cv2.flip(img_NZ_rgb, 0)
+img_NZ_rgb_flipped_both = cv2.flip(img_NZ_rgb, -1)
+
+plt.figure(figsize=(18, 5))
+plt.subplot(141);plt.imshow(img_NZ_rgb_flipped_horz);plt.title("Horizontal Flip");
+plt.subplot(142);plt.imshow(img_NZ_rgb_flipped_vert);plt.title("Vertical Flip");
+plt.subplot(143);plt.imshow(img_NZ_rgb_flipped_both);plt.title("Both Flipped");
+plt.subplot(144);plt.imshow(img_NZ_rgb);plt.title("Original");
+```
+
+ ![flip.png](02_basic_image_manipulations/flip.png)
 
 谢谢阅读！
