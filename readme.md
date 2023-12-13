@@ -624,4 +624,182 @@ plt.subplot(144);plt.imshow(img_NZ_rgb);plt.title("Original");
 
  ![flip.png](02_basic_image_manipulations/flip.png)
 
+
+
+## 03 图像标注
+
+在下文中，我们将介绍如何使用 `OpenCV` 对图像进行标注。我们将学习如何对图像执行以下标注。
+
++ 画线 Lines
++ 画圆圈 Circles
++ 绘制矩形 Rectangles
++ 添加文字 Text
+
+当您想要标注演示结果或进行应用程序演示时，这些非常有用。标注在开发和调试过程中也很有用。（比如画框框标注出ROI）
+
+### 03-01 下载物料
+
+```python
+import os
+import cv2
+import matplotlib
+import numpy as np
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+matplotlib.rcParams['figure.figsize'] = (9.0, 9.0)
+
+# 下载函数
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+# 下载
+URL = r"https://www.dropbox.com/s/48hboi1m4crv1tl/opencv_bootcamp_assets_NB3.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB3.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+
+image = cv2.imread("Apollo_11_Launch.jpg", cv2.IMREAD_COLOR)
+
+# 展示原始示例图片“阿波罗11号”
+plt.imshow(image[:, :, ::-1])
+# <matplotlib.image.AxesImage at 0x1bda3bf2d10>
+```
+
+ ![apollo11](03_image_annotation/Apollo_11_Launch_origin.png)
+
+### 03-02 画线
+
+让我们从在图像上画一条线开始。为此，我们将使用 `cv2.line()` 函数。函数语法:
+
+`img = cv2.line(img, pt1, pt2, 颜色[, 厚度[, 线型[, 移位]]])`
+
+`img`：标注过后的输出图像。
+
+该函数有 4 个必需参数：
+
+1. `img`：我们将在其上画线的图像
+2. `pt1`：线段的第一个点（x，y位置）
+3. `pt2`：线段的第二个点
+4. `color`：将绘制的线的颜色
+
+可选参数包括：
+
+    1. 厚度：指定线条粗细的整数。默认值为 1。
+    1. `lineType`：线路类型。默认值为 8，代表 8 条连接线。通常，cv2.LINE_AA（抗锯齿或平滑线）用于 `lineType`。
+
+```python
+imageLine = image.copy()
+# The line starts from (200,100) and ends at (400,100)
+# The color of the line is YELLOW (Recall that OpenCV uses BGR format)
+# Thickness of line is 5px
+# Linetype is cv2.LINE_AA
+cv2.line(imageLine, (200, 100), (400, 100), (0, 255, 255), thickness=5, lineType=cv2.LINE_AA);
+plt.imshow(imageLine[:,:,::-1])
+```
+
+ ![apollo11](03_image_annotation/Apollo_11_Launch_line.png)
+
+### 03-03 画圈圈
+
+画一个圆圈我们将使用 `cv2.circle` 函数。函数式语法如下：
+
+`img = cv2.circle(img, 中心, 半径, 颜色[, 厚度[, 线型[, 移位]]])`
+
+`img`：已标注的输出图像。
+
+该函数有 4 个必需参数：
+
+1. `img`：我们将在其上画线的图像
+2. 中心：圆的中心
+3. radius：圆的半径
+4. color：将绘制的圆的颜色
+
+（可选）参数:
+
+    1. 厚度：圆形轮廓的厚度（如果为正）。如果为此参数提供`负值`，则会产生`实心圆`。
+    1.  `lineType`：圆边界的类型。这与 `cv2.line` 中的 `lineType` 参数完全相同
+
+```python
+imageCircle = image.copy()
+cv2.circle(imageCircle, (900,500), 100, (0, 0, 255), thickness=5, lineType=cv2.LINE_AA);
+plt.imshow(imageCircle[:,:,::-1])
+```
+
+ ![apollo11](03_image_annotation/Apollo_11_Launch_circle.png)
+
+### 03-04 画矩形
+
+`cv2.rectangle` 函数在图像上绘制矩形。函数语法如下:
+
+`img = cv2.rectangle(img, pt1, pt2, 颜色[, 厚度[, 线型[, 移位]]])`
+
+`img`：已标注的输出图像。
+
+该函数有 4 个必需参数：
+
+1. `img`：要在其上绘制矩形的图像。
+2.  `pt1`：矩形的顶点。通常我们在这里使用左上角的顶点。
+3. `pt2`：与 `pt1 `相对的矩形的顶点。通常我们在这里使用右下角的顶点。
+4. 颜色: 长方形颜色
+
+可选参数:
+
+1. 厚度：圆形轮廓的厚度（如果为正）。如果为此参数提供负值，则会生成填充矩形。
+2. `lineType`：圆边界的类型。这与 `cv2.line` 中的 `lineType` 参数完全相同
+
+```python
+# Draw a rectangle (thickness is a positive integer)
+imageRectangle = image.copy()
+cv2.rectangle(imageRectangle, (500, 100), (700, 600), (255, 0, 255), thickness=5, lineType=cv2.LINE_8)
+# Display the image
+plt.imshow(imageRectangle[:, :, ::-1])
+```
+
+ ![apollo11](03_image_annotation/Apollo_11_Launch_rectangle.png)
+
+### 03-05 添加文本
+
+最后，让我们看看如何使用 `cv2.putText` 函数在图像上写入一些文本。函数式语法如下：
+
+`img = cv2.putText（img，文本，org，fontFace，fontScale，颜色[，厚度[，lineType [，bottomLeftOrigin]]]）`
+
+`img`：已标注的输出图像。
+
+该函数有 6 个必需参数：
+
+1. `img`：必须在其上写入文本的图像。
+2. `text`：要写入的文本字符串。
+3.  `org`：图像中文本字符串的左下角。
+4.  `fontFace`：字体类型
+5.   `fontScale`：字体比例因子乘以字体特定的基本尺寸。
+6.  `颜色`：字体颜色
+
+我们需要了解的其他可选参数包括：
+
+1. 厚度：指定文本线条粗细的整数。默认值为 1。
+2.  `lineType`：同上。
+
+```python
+imageText = image.copy()
+text = "Apollo 11 Saturn V Launch, July 16, 1969"
+fontScale = 2.3
+fontFace = cv2.FONT_HERSHEY_PLAIN
+fontColor = (0, 255, 0)
+fontThickness = 2
+cv2.putText(imageText, text, (200, 700), fontFace, fontScale, fontColor, fontThickness, cv2.LINE_AA);
+plt.imshow(imageText[:, :, ::-1])
+```
+
+ ![apollo11](03_image_annotation/Apollo_11_Launch_text.png)
+
+
+
 谢谢阅读！
