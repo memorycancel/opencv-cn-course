@@ -800,6 +800,327 @@ plt.imshow(imageText[:, :, ::-1])
 
  ![apollo11](03_image_annotation/Apollo_11_Launch_text.png)
 
+## 04 图像增强
 
+### 使用数学运算的基本图像增强
+
+将数学运算运用到图像处理技术获得不同的结果。大多数情况下，我们使用一些基本数学运算操作来获得图像的增强版本。我们将了解计算机视觉像素管道中经常使用的一些基本操作。下文我们将介绍：
+
++ 算术运算，例如加法、乘法
++ 阈值和掩蔽 Masking(马赛克)
++ 按位运算，例如 `OR`、`AND`、`XOR`
+
+### 04-01 下载物料
+
+```python
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+from IPython.display import Image
+
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/0oe92zziik5mwhf/opencv_bootcamp_assets_NB4.zip?dl=1"
+
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB4.zip")
+
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+
+```
+
+原始图
+
+```python
+img_bgr = cv2.imread("New_Zealand_Coast.jpg", cv2.IMREAD_COLOR)
+img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+# Display 18x18 pixel image.
+Image(filename="New_Zealand_Coast.jpg")
+```
+
+ ![New_Zealand_Coast](04_image_enhancement/New_Zealand_Coast.jpg)
+
+### 04-02 加/减法运算（亮度增强/减少）
+
+我们讨论的第一个操作是简单的加减运算。这会导致图像的亮度增加或减少，因为我们最终会以相同的量增加或减少每个像素的强度值。因此这将导致全局亮度增加/减少。
+
+```python
+matrix = np.ones(img_rgb.shape, dtype="uint8") * 50
+img_rgb_brighter = cv2.add(img_rgb, matrix)
+img_rgb_darker   = cv2.subtract(img_rgb, matrix)
+
+plt.figure(figsize=[18, 5])
+plt.subplot(131); plt.imshow(img_rgb_darker);  plt.title("Darker");
+plt.subplot(132); plt.imshow(img_rgb);         plt.title("Original");
+plt.subplot(133); plt.imshow(img_rgb_brighter);plt.title("Brighter");
+```
+
+ ![add_substract](04_image_enhancement/add_substract.png)
+
+### 04-03 乘法运算（对比度增强）
+
+就像加法可以导致亮度变化一样，乘法可以用来提高图像的对比度。对比度是图像像素强度值的差异。将强度值乘以常数可以使差异变大（如果乘法因子 >1 ）或变小（如果乘法因子 < 1 ）。
+
+```python
+matrix1 = np.ones(img_rgb.shape) * 0.8
+matrix2 = np.ones(img_rgb.shape) * 1.2
+img_rgb_darker   = np.uint8(cv2.multiply(np.float64(img_rgb), matrix1))
+img_rgb_brighter = np.uint8(cv2.multiply(np.float64(img_rgb), matrix2))
+plt.figure(figsize=[18,5])
+plt.subplot(131); plt.imshow(img_rgb_darker);  plt.title("Lower Contrast");
+plt.subplot(132); plt.imshow(img_rgb);         plt.title("Original");
+plt.subplot(133); plt.imshow(img_rgb_brighter);plt.title("Higher Contrast");
+```
+
+ ![multiply](04_image_enhancement/multiply.png)
+
+#### 发生了什么？
+
+你能看到相乘后图像某些区域的奇怪颜色吗？问题在于，相乘后，本来就很高的值变得大于 255。因此，出现了溢出问题。我们如何克服这个问题？
+
+#### 使用 `np.clip()函数` 处理溢出
+
+```python
+matrix1 = np.ones(img_rgb.shape) * 0.8
+matrix2 = np.ones(img_rgb.shape) * 1.2
+
+img_rgb_lower  = np.uint8(cv2.multiply(np.float64(img_rgb), matrix1))
+# 下面使用np.clip()
+img_rgb_higher = np.uint8(np.clip(cv2.multiply(np.float64(img_rgb), matrix2), 0, 255))
+plt.figure(figsize=[18,5])
+plt.subplot(131); plt.imshow(img_rgb_lower); plt.title("Lower Contrast");
+plt.subplot(132); plt.imshow(img_rgb);       plt.title("Original");
+plt.subplot(133); plt.imshow(img_rgb_higher);plt.title("Higher Contrast");
+```
+
+ ![multiply](04_image_enhancement/multiply_normal.png)
+
+### 04-04 图像阈值处理
+
+二进制图像在图像处理中有很多用例。最常见的用例之一是创建蒙版（边缘）。图像蒙版允许我们处理图像的特定部分，保持其他部分完好无损。图像阈值用于从灰度图像创建二进制图像。您可以使用不同的阈值从同一原始图像创建不同的二值图像。
+
+#### `cv2.threshold()`函数语法
+
+`retval, dst = cv2.threshold( src, thresh, maxval, type[, dst] )`
+
+`dst`：与 `src` 大小、类型相同、通道数相同的输出数组。
+
+该函数有 4 个必需参数：
+
+1. `src`：输入数组（多通道，8位或32位浮点）。
+2. 阈值：阈值。
+3.  `maxval`：与 `THRESH_BINARY` 和 `THRESH_BINARY_INV `阈值类型一起使用的最大值。
+4.  `type`：阈值类型（参见 `ThresholdTypes`）。
+
+#### `cv.adaptiveThreshold()`函数语法
+
+`dst = cv.adaptiveThreshold（src，maxValue，adaptiveMethod，thresholdType，blockSize，C [，dst]）`
+
+`dst` 与 `src` 大小相同、类型相同的目标图像。
+
+该函数有 6 个必需参数：
+
+1.  `src`：源 8 位单通道图像。
+2.   `maxValue`：分配给满足条件的像素的非零值
+3.  `AdaptiveMethod`：要使用的自适应阈值算法，请参阅 `AdaptiveThresholdTypes`。 `BORDER_REPLICATE | BORDER_REPLICATE | BORDER_ISOLATED `用于处理边界。
+4.  `ThresholdType`：阈值类型，必须是 `THRESH_BINARY` 或 `THRESH_BINARY_INV`，请参阅 `ThresholdTypes`。
+5.  `blockSize`：用于计算像素阈值的像素邻域的大小：3、5、7 等。
+6.  `C`：从平均值或加权平均值中减去常数（参见下面的详细信息）。通常，它是正值，但也可能为零或负值。
+
+```python
+img_read = cv2.imread("building-windows.jpg", cv2.IMREAD_GRAYSCALE)
+retval, img_thresh = cv2.threshold(img_read, 100, 255, cv2.THRESH_BINARY)
+plt.figure(figsize=[18, 5])
+plt.subplot(121);plt.imshow(img_read, cmap="gray");  plt.title("Original")
+plt.subplot(122);plt.imshow(img_thresh, cmap="gray");plt.title("Thresholded")
+print(img_thresh.shape) #(572, 800)
+```
+
+ ![Thresholding](04_image_enhancement/Thresholding.png)
+
+### 04-05 应用：乐谱阅读器
+
+假设您想要构建一个可以读取（解码）乐谱的应用程序。这类似于文本文档的光学字符识别 (OCR)，其目标是识别文本字符。在任一应用程序中，处理管道中的第一步都是隔离文档图像中的重要信息（将其与背景分离）。该任务可以通过阈值技术来完成。让我们看一个例子。
+
+```python
+# Read the original image
+img_read = cv2.imread("Piano_Sheet_Music.png", cv2.IMREAD_GRAYSCALE)
+# Perform global thresholding
+retval, img_thresh_gbl_1 = cv2.threshold(img_read, 50, 255, cv2.THRESH_BINARY)
+# Perform global thresholding
+retval, img_thresh_gbl_2 = cv2.threshold(img_read, 130, 255, cv2.THRESH_BINARY)
+# Perform adaptive thresholding 自适应阈值处理！
+img_thresh_adp = cv2.adaptiveThreshold(img_read, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 7)
+# Show the images
+plt.figure(figsize=[18,15])
+plt.subplot(221); plt.imshow(img_read,        cmap="gray");  plt.title("Original");
+plt.subplot(222); plt.imshow(img_thresh_gbl_1,cmap="gray");  plt.title("Thresholded (global: 50)");
+plt.subplot(223); plt.imshow(img_thresh_gbl_2,cmap="gray");  plt.title("Thresholded (global: 130)");
+plt.subplot(224); plt.imshow(img_thresh_adp,  cmap="gray");  plt.title("Thresholded (adaptive)");
+```
+
+![music_sheet](04_image_enhancement/music_sheet.png)
+
+### 04-06 按位运算
+
+函数语法
+
+`cv2.bitwise_and()` 的示例 `API`。其他包括：`cv2.bitwise_or()`、`cv2.bitwise_xor()`、`cv2.bitwise_not()`
+
+`dst = cv2.bitwise_and( src1, src2[, dst[, 掩码]] )`
+
+`dst：与输入数组具有相同大小和类型的输出数组。`
+
+该函数有 2 个必需参数：
+
+1. `src1`：第一个输入数组或标量。
+2.   `src2`：第二个输入数组或标量。
+
+一个重要的可选参数是：
+
+    1. `mask`：可选操作掩码，8位单通道数组，指定要更改的输出数组的元素。
+
+先读两张图片：
+
+```python
+img_rec = cv2.imread("rectangle.jpg", cv2.IMREAD_GRAYSCALE)
+img_cir = cv2.imread("circle.jpg", cv2.IMREAD_GRAYSCALE)
+plt.figure(figsize=[20, 5])
+plt.subplot(121);plt.imshow(img_rec, cmap="gray")
+plt.subplot(122);plt.imshow(img_cir, cmap="gray")
+print(img_rec.shape)
+```
+
+ ![two_images](04_image_enhancement/two_images.png)
+
+#### `AND`运算
+
+```python
+result = cv2.bitwise_and(img_rec, img_cir, mask=None)
+plt.imshow(result, cmap="gray")
+```
+
+ ![and_image](04_image_enhancement/and_image.png)
+
+#### `OR`运算
+
+```python
+result = cv2.bitwise_or(img_rec, img_cir, mask=None)
+plt.imshow(result, cmap="gray")
+```
+
+ ![or_image](04_image_enhancement/or_image.png)
+
+#### `XOR`运算
+
+```python
+result = cv2.bitwise_xor(img_rec, img_cir, mask=None)
+plt.imshow(result, cmap="gray")
+```
+
+ ![xor_image](04_image_enhancement/xor_image.png)
+
+### 04-07 应用：商标处理
+
+下面展示如何使用背景图像填充下面可口可乐徽标的白色字体。
+
+`Image(filename='Logo_Manipulation.png')`
+
+ ![Logo_Manipulation.png](04_image_enhancement/Logo_Manipulation.png)
+
+#### 读取前景图
+
+```python
+img_bgr = cv2.imread("coca-cola-logo.png")
+img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+plt.imshow(img_rgb)
+print(img_rgb.shape)
+logo_w = img_rgb.shape[0]
+logo_h = img_rgb.shape[1]
+```
+
+ ![1](04_image_enhancement/1.png)
+
+#### 读取背景图
+
+```python
+# Read in image of color cheackerboad background
+img_background_bgr = cv2.imread("checkerboard_color.png")
+img_background_rgb = cv2.cvtColor(img_background_bgr, cv2.COLOR_BGR2RGB)
+# Set desired width (logo_w) and maintain image aspect ratio
+aspect_ratio = logo_w / img_background_rgb.shape[1]
+dim = (logo_w, int(img_background_rgb.shape[0] * aspect_ratio))
+# Resize background image to sae size as logo image
+img_background_rgb = cv2.resize(img_background_rgb, dim, interpolation=cv2.INTER_AREA)
+plt.imshow(img_background_rgb)
+print(img_background_rgb.shape)
+
+```
+
+ ![2](04_image_enhancement/2.png)
+
+#### 为原始图像创建蒙版
+
+```python
+img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+# Apply global thresholding to creat a binary mask of the logo
+retval, img_mask = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+plt.imshow(img_mask, cmap="gray")
+print(img_mask.shape)
+```
+
+ ![3.png](04_image_enhancement/3.png)
+
+#### 反转蒙版
+
+```python
+# Create an inverse mask
+img_mask_inv = cv2.bitwise_not(img_mask)
+plt.imshow(img_mask_inv, cmap="gray")
+```
+
+ ![4](04_image_enhancement/4.png)
+
+#### 在蒙版上应用背景
+
+```python
+# Create colorful background "behind" the logo lettering
+img_background = cv2.bitwise_and(img_background_rgb, img_background_rgb, mask=img_mask)
+plt.imshow(img_background)
+```
+
+ ![5](04_image_enhancement/5.png)
+
+#### 将前景与图像隔离
+
+```python
+# Isolate foreground (red from original image) using the inverse mask
+img_foreground = cv2.bitwise_and(img_rgb, img_rgb, mask=img_mask_inv)
+plt.imshow(img_foreground)
+```
+
+ ![6](04_image_enhancement/6.png)
+
+#### 结果：合并前景和背景
+
+```python
+# Add the two previous results obtain the final result
+result = cv2.add(img_background, img_foreground)
+plt.imshow(result)
+cv2.imwrite("logo_final.png", result[:, :, ::-1])
+```
+
+  ![7](04_image_enhancement/7.png)
 
 谢谢阅读！
