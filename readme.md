@@ -1157,6 +1157,131 @@ python3 05_accessing_the_camera.py
 
 ![webm1.webm](05_accessing_the_camera/Screenshot.png)
 
+## 06 视频写入
 
+### 06-00 使用 `OpenCV` 写入视频
+
+在构建应用程序时，保存工作的视频演示效果变得很重要，而且许多应用程序本身可能需要保存视频剪辑。例如，在监控应用程序中，您可能必须在看到异常情况时立即保存视频剪辑。下文我们将描述如何使用 `openCV` 将视频保存为 `avi` 和 `mp4` 格式。
+
+### 06-01 下载物料
+
+```python
+import os
+import cv2
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+from IPython.display import YouTubeVideo, display, HTML
+from base64 import b64encode
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/p8h7ckeo2dn1jtz/opencv_bootcamp_assets_NB6.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB6.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path) 
+```
+
+### 06-02 从源读取视频
+
+```python
+source = 'race_car.mp4'  # source = 0 for webcam
+cap = cv2.VideoCapture(source)
+if not cap.isOpened():
+    print("Error opening video stream or file")
+```
+
+#### 06-02-01 读取并显示视频的一帧
+
+```python
+ret, frame = cap.read()
+plt.imshow(frame[..., ::-1])
+```
+
+#### 06-02-03 显示整个视频文件
+
+```python
+video = YouTubeVideo("RwxVEjv78LQ", width=700, height=438)
+display(video)
+```
+
+<iframe width="700" height="438" src="https://www.youtube.com/embed/2Gju7YLfkP0" title="Opencv Bootcamp NB06 race car out x264" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 06-03 使用`OpenCV`写入视频
+
+为了写入视频，您需要创建一个具有正确参数的视频编写器对象。函数语法如下：
+
+`VideoWriter object = cv.VideoWriter(filename, fourcc, fps, frameSize )`
+
+其中，参数如下：
+
+1. 文件名：输出视频文件的名称。
+2. `fourcc`：用于压缩帧的编解码器的 4 字符代码。例如，`VideoWriter::fourcc('P','I','M','1') `是  `MPEG-1` 编解码器，`VideoWriter::fourcc('M','J','P','G ')` 是一个 `Motion-jpeg`  编解码器等。代码列表可以在 `Video Codecs by FOURCC` 页面获取。带有 `MP4` 容器的 `FFMPEG` 后端本机使用其他值作为  `fourcc` 代码：请参阅 `ObjectType`，因此您可能会收到来自 `OpenCV` 的有关 `fourcc` 代码转换的警告消息。
+3. `fps`：创建的视频流的帧速率。
+4. 帧大小：视频帧的大小。
+
+```python
+# Default resolutions of the frame are obtained.
+# Convert the resolutions from float to integer.
+frame_width = int(cap.get(3))
+frame_height = int(cap.get(4))
+# Define the codec and create VideoWriter object.
+out_avi = cv2.VideoWriter("race_car_out.avi", cv2.VideoWriter_fourcc("M", "J", "P", "G"), 10, (frame_width, frame_height))
+out_mp4 = cv2.VideoWriter("race_car_out.mp4", cv2.VideoWriter_fourcc(*"XVID"), 10, (frame_width, frame_height))
+```
+
+#### 06-03-01 读取帧并写入文件
+
+我们将从赛车视频中读取帧并将其写入到我们在上一步中创建的两个对象中。最后我们应该在任务完成后释放对象。
+
+```python
+# Read until video is completed
+while cap.isOpened():
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+
+    if ret:
+        # Write the frame to the output files
+        out_avi.write(frame)
+        out_mp4.write(frame)
+
+    # Break the loop
+    else:
+        break
+        
+# When everything done, release the VideoCapture and VideoWriter objects
+cap.release()
+out_avi.release()
+out_mp4.release()
+
+```
+
+为了在 `Google Colab` 上显示视频，我们将安装并使用 `ffmpeg` 包。使用 `ffmpeg`，我们将 `.mp4` 文件的编码从` XVID` 更改为 `H264`
+
+`HTML 5` 可以正确渲染 `H264 `编码的视频，而 `OpenCV` 还没有该编码。这就是为什么我们需要更改它们的编码以便可以渲染它们。目前，`HTML5` 仅支持 `MP4` 文件的重新渲染，因此我们仅更改 `race_car_out.mp4` 文件的编码。
+
+```shell
+# Installing ffmpeg
+!apt-get -qq install ffmpeg 
+# Change video encoding of mp4 file from XVID to h264 
+!ffmpeg -y -i "/content/race_car_out.mp4" -c:v libx264 "race_car_out_x264.mp4"  -hide_banner -loglevel error
+```
+
+处理完后渲染视频
+
+```python
+mp4 = open("/content/race_car_out_x264.mp4", "rb").read()
+data_url = "data:video/mp4;base64," + b64encode(mp4).decode()
+HTML(f"""<video width=700 controls><source src="{data_url}" type="video/mp4"></video>""")
+```
+
+<video src="06_video_writing/race_car.mp4" />
 
 谢谢阅读！
