@@ -2,15 +2,14 @@
 
 原教程地址：[https://courses.opencv.org/](https://courses.opencv.org/)
 
- ![1](contents-assets/1.png)
-
- ![2](contents-assets/2.png)
-
- ![3](contents-assets/3.png)
-
 | 教程                     | 教程和代码文件夹          | open |
 | ------------------------ | ------------------------- | ---- |
 | opencv入门训练营         | opencv-python-bootcamp    | free |
 | python基础               | python-for-beginners      | free |
 | tensorflow深度学习训练营 | tensorflow-keras-bootcamp | free |
 
+ ![1](contents-assets/1.png)
+
+ ![2](contents-assets/2.png)
+
+ ![3](contents-assets/3.png)

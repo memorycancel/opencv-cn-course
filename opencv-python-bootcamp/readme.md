@@ -1353,6 +1353,164 @@ cv2.destroyWindow(win_name)
 
 <video src="07_image_filter_edge_detection/3.webm" type="video/webm" />
 
+## 08 图像对齐
+
+### 08-01 什么是图像对齐？
+
+将图像与模板对齐。（全能扫描王？）
+
+ ![align_image_example](08_image_features_and_alignment/opencv_bootcamp_08_image-alignment-using-opencv.jpg)
+
+#### 理论知识
+
+1. `Homography`（单应性）单应性是两个平面之间的投影变换，或者是图像的两个平面投影之间的映射。换句话说，单应性是简单的图像变换，描述当相机（或观察到的物体）移动时两个图像之间的相对运动。
+2. `opencvd`中单应性将正方形变换为任意四边形。
+
+ ![opencv_bootcamp_08_motion-models.jpg](08_image_features_and_alignment/opencv_bootcamp_08_motion-models.jpg)
+
+3. 两个平面的图像通过单应性相对应关联
+4. 我们需要 4 个对应点的坐标来评估单应性
+
+ ![opencv_bootcamp_08_homography-example.jpg](08_image_features_and_alignment/opencv_bootcamp_08_homography-example.jpg)
+
+### 08-02 准备物料
+
+```python
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+URL = r"https://www.dropbox.com/s/zuwnn6rqe0f4zgh/opencv_bootcamp_assets_NB8.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB8.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+```
+
+### 08-03 图像对齐步骤
+
+#### 08-03-01 第一步：读取模板和扫描图像
+
+```python
+# Read reference image
+refFilename = "form.jpg"
+print("Reading reference image:", refFilename)
+im1 = cv2.imread(refFilename, cv2.IMREAD_COLOR)
+im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
+
+# Read image to be aligned
+imFilename = "scanned-form.jpg"
+print("Reading image to align:", imFilename)
+im2 = cv2.imread(imFilename, cv2.IMREAD_COLOR)
+im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
+```
+
+```
+Reading reference image: form.jpg
+Reading image to align: scanned-form.jpg
+```
+
+```python
+# Display Images
+
+plt.figure(figsize=[20, 10]); 
+plt.subplot(121); plt.axis('off'); plt.imshow(im1); plt.title("Original Form")
+plt.subplot(122); plt.axis('off'); plt.imshow(im2); plt.title("Scanned Form")
+```
+
+ ![download.png](08_image_features_and_alignment/download.png)
+
+#### 08-03-02 第二步：找到两张图像关键点
+
+将关键点视为角点 ，这些点在图像变换下是稳定的
+
+```python
+# Convert images to grayscale
+im1_gray = cv2.cvtColor(im1, cv2.COLOR_BGR2GRAY)
+im2_gray = cv2.cvtColor(im2, cv2.COLOR_BGR2GRAY)
+# Detect ORB features and compute descriptors.
+MAX_NUM_FEATURES = 500
+orb = cv2.ORB_create(MAX_NUM_FEATURES)
+keypoints1, descriptors1 = orb.detectAndCompute(im1_gray, None)
+keypoints2, descriptors2 = orb.detectAndCompute(im2_gray, None)
+# Display
+im1_display = cv2.drawKeypoints(im1, keypoints1, outImage=np.array([]), 
+                                color=(255, 0, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+im2_display = cv2.drawKeypoints(im2, keypoints2, outImage=np.array([]), 
+                                color=(255, 0, 0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+```
+
+```python
+plt.figure(figsize=[20,10])
+plt.subplot(121); plt.axis('off'); plt.imshow(im1_display); plt.title("Original Form");
+plt.subplot(122); plt.axis('off'); plt.imshow(im2_display); plt.title("Scanned Form");
+```
+
+ ![download.png](08_image_features_and_alignment/download2.png)
+
+#### 08-03-03 第三步：匹配两幅图像中的关键点
+
+```python
+# Match features.
+matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
+# Converting to list for sorting as tuples are immutable objects.
+matches = list(matcher.match(descriptors1, descriptors2, None))
+# Sort matches by score
+matches.sort(key=lambda x: x.distance, reverse=False)
+# Remove not so good matches
+numGoodMatches = int(len(matches) * 0.1)
+matches = matches[:numGoodMatches]
+```
+
+```python
+# Draw top matches
+im_matches = cv2.drawMatches(im1, keypoints1, im2, keypoints2, matches, None)
+
+plt.figure(figsize=[40, 10])
+plt.imshow(im_matches);plt.axis("off");plt.title("Original Form")
+```
+
+ ![download.png](08_image_features_and_alignment/download3.png)
+
+#### 08-03-04 第四步：查找单应性
+
+```python
+# Extract location of good matches
+points1 = np.zeros((len(matches), 2), dtype=np.float32)
+points2 = np.zeros((len(matches), 2), dtype=np.float32)
+for i, match in enumerate(matches):
+    points1[i, :] = keypoints1[match.queryIdx].pt
+    points2[i, :] = keypoints2[match.trainIdx].pt
+# Find homography
+h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+```
+
+#### 08-03-05 第五步：扭曲图像
+
+```python
+# Use homography to warp image
+height, width, channels = im1.shape
+im2_reg = cv2.warpPerspective(im2, h, (width, height))
+
+# Display results
+plt.figure(figsize=[20, 10])
+plt.subplot(121);plt.imshow(im1);    plt.axis("off");plt.title("Original Form")
+plt.subplot(122);plt.imshow(im2_reg);plt.axis("off");plt.title("Scanned Form")
+#Text(0.5, 1.0, 'Scanned Form')
+```
+
+ ![download.png](08_image_features_and_alignment/download4.png)
+
 
 
 谢谢阅读！
