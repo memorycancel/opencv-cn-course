@@ -6,6 +6,37 @@
 
 官方文档：https://docs.opencv.org
 
+## 00 opencv-python
+
+给系统安装opencv的python库开发环境
+
+### 00-01 macos
+
+1. www.anaconda.com 
+2. 下载anaconda环境包，（包括python环境 opencv包环境一条龙）
+3. 安装anaconda
+4. 打开终端
+```bash
+conda create --name opencv-env
+conda activate opencv-env
+# 给环境安装opencv
+conda install -c conda-forge opencv
+```
+5. 检验安装
+```python
+python3
+import cv2 as cv
+cv.__version__
+```
+
+### 00-02 windows
+
+同上类似
+
+### 00-03 linux
+
+同上类似
+
 ## 01 图像基本读写
 
 代码见文件夹：`01_getting_started_with_images`
