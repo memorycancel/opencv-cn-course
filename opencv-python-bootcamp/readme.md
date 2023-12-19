@@ -1775,4 +1775,270 @@ print("saved ldr-Mantiuk.jpg")
 
 ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download4.png)
 
+## 12 对象追踪
+
+1. 什么是追踪？
+2. 计算机视觉中的跟踪。
+3. 运动模型和外观模型。
+4. OpenCV API Tracker类。
+
+### 12-01 目标
+
+给定对象的初始位置，跟踪后续帧中的位置
+![opencv_bootcamp_NB11_race_car_tracking](11_object_tracking/opencv_bootcamp_NB11_race_car_tracking.png)
+
+### 12-02 准备物料
+
+```python
+import os
+import sys
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+from IPython.display import HTML
+from matplotlib.animation import FuncAnimation
+
+from IPython.display import YouTubeVideo, display, HTML
+from base64 import b64encode
+
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/ld535c8e0vueq6x/opencv_bootcamp_assets_NB11.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB11.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+```
+
+### 12-03 了解`OpenCV` 中的跟踪器类
+
+1. BOOSTING
+2. MIL 
+3. KCF 
+4. CRST
+5. TLD
+   1. 倾向于从遮挡中恢复追踪
+6. MEDIANFLOW 
+   1. 适合可预测的慢动作
+7. GOTURN 
+   1. 基于深度学习
+   2. 最准确
+8. MOSSE
+   1. 最快的
+
+```python
+video = YouTubeVideo("XkJCvtCRdVM", width=1024, height=640)
+display(video)
+```
+
+<iframe width="1024" height="640" src="https://www.youtube.com/embed/XkJCvtCRdVM" title="OpenCV Bootcamp NB11 race car preview" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+```python
+video_input_file_name = "race_car.mp4"
+
+def drawRectangle(frame, bbox):
+    p1 = (int(bbox[0]), int(bbox[1]))
+    p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+    cv2.rectangle(frame, p1, p2, (255, 0, 0), 2, 1)
+
+def displayRectangle(frame, bbox):
+    plt.figure(figsize=(20, 10))
+    frameCopy = frame.copy()
+    drawRectangle(frameCopy, bbox)
+    frameCopy = cv2.cvtColor(frameCopy, cv2.COLOR_RGB2BGR)
+    plt.imshow(frameCopy)
+    plt.axis("off")
+
+def drawText(frame, txt, location, color=(50, 170, 50)):
+    cv2.putText(frame, txt, location, cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
+
+```
+
+### 12-04 `GOTURN` 追踪器
+
+ ![opencv_bootcamp_NB11_goturn.jpg](11_object_tracking/opencv_bootcamp_NB11_goturn.jpg)
+
+### 12-05 创建跟踪器实例
+
+```python
+# Set up tracker
+tracker_types = [
+    "BOOSTING",
+    "MIL",
+    "KCF",
+    "CSRT",
+    "TLD",
+    "MEDIANFLOW",
+    "GOTURN",
+    "MOSSE",
+]
+
+# Change the index to change the tracker type
+tracker_type = tracker_types[2]
+
+if tracker_type == "BOOSTING":
+    tracker = cv2.legacy.TrackerBoosting.create()
+elif tracker_type == "MIL":
+    tracker = cv2.legacy.TrackerMIL.create()
+elif tracker_type == "KCF":
+    tracker = cv2.TrackerKCF.create()
+elif tracker_type == "CSRT":
+    tracker = cv2.TrackerCSRT.create()
+elif tracker_type == "TLD":
+    tracker = cv2.legacy.TrackerTLD.create()
+elif tracker_type == "MEDIANFLOW":
+    tracker = cv2.legacy.TrackerMedianFlow.create()
+elif tracker_type == "GOTURN":
+    tracker = cv2.TrackerGOTURN.create()
+else:
+    tracker = cv2.legacy.TrackerMOSSE.create()
+```
+
+### 12-06 读取输入视频并设置输出视频
+
+```python
+# Read video
+video = cv2.VideoCapture(video_input_file_name)
+ok, frame = video.read()
+
+# Exit if video not opened
+if not video.isOpened():
+    print("Could not open video")
+    sys.exit()
+else:
+    width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+video_output_file_name = "race_car-" + tracker_type + ".mp4"
+video_out = cv2.VideoWriter(video_output_file_name, cv2.VideoWriter_fourcc(*"XVID"), 10, (width, height))
+
+video_output_file_name
+```
+
+### 12-07 定义边界框
+
+```python
+# Define a bounding box
+bbox = (1300, 405, 160, 120)
+# bbox = cv2.selectROI(frame, False)
+# print(bbox)
+displayRectangle(frame, bbox)
+```
+
+![download.png](11_object_tracking/download.png)
+
+### 12-08 初始化跟踪器
+
+1. 一帧
+2. 边界框
+
+```python
+# Initialize tracker with first frame and bounding box
+ok = tracker.init(frame, bbox)
+```
+
+### 12-09 读取帧并跟踪对象
+
+```python
+while True:
+    ok, frame = video.read()
+
+    if not ok:
+        break
+
+    # Start timer
+    timer = cv2.getTickCount()
+
+    # Update tracker
+    ok, bbox = tracker.update(frame)
+
+    # Calculate Frames per second (FPS)
+    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+
+    # Draw bounding box
+    if ok:
+        drawRectangle(frame, bbox)
+    else:
+        drawText(frame, "Tracking failure detected", (80, 140), (0, 0, 255))
+
+    # Display Info
+    drawText(frame, tracker_type + " Tracker", (80, 60))
+    drawText(frame, "FPS : " + str(int(fps)), (80, 100))
+
+    # Write frame to video
+    video_out.write(frame)
+
+video.release()
+video_out.release()
+```
+
+转换格式：
+
+```shell
+# Installing ffmpeg
+!apt-get -qq install ffmpeg 
+# Change video encoding of mp4 file from XVID to h264 
+!ffmpeg -y -i {video_output_file_name} -c:v libx264 $"race_car_track_x264.mp4"  -hide_banner -loglevel error
+```
+
+MP4
+
+```python
+mp4 = open("/content/race_car_track_x264.mp4", "rb").read()
+data_url = "data:video/mp4;base64," + b64encode(mp4).decode()
+
+HTML(f"""<video width=1024 controls><source src="{data_url}" type="video/mp4"></video>""")
+```
+
+```python
+# Tracker: KCF
+video = YouTubeVideo("pk3tmdRX4ww", width=1024, height=640)
+display(video)
+```
+
+以下是通过不同的跟踪器实现的不同对象跟踪效果：
+
+#### Tracker: KCF
+
+```python
+# Tracker: KCF
+video = YouTubeVideo("pk3tmdRX4ww", width=1024, height=640)
+display(video)
+```
+
+<iframe width="1024" height="640" src="https://www.youtube.com/embed/pk3tmdRX4ww" title="OpenCV Bootcamp NB11 race car KCF" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+#### Tracker: CSRT
+
+```python
+# Tracker: CSRT
+video = YouTubeVideo("6gGDf-7ypBE", width=1024, height=640)
+display(video)
+```
+
+<iframe width="1024" height="640" src="https://www.youtube.com/embed/6gGDf-7ypBE" title="OpenCV Bootcamp NB11 race car CSRT" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+#### Tracker: GOTURN
+
+```python
+# Tracker: GOTURN
+video = YouTubeVideo("0bnWxc4zMvY", width=1024, height=640)
+display(video)
+```
+
+<iframe width="1024" height="640" src="https://www.youtube.com/embed/0bnWxc4zMvY" title="OpenCV Bootcamp NB11 race car GOTURN" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+
+
 谢谢阅读！
