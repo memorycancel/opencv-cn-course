@@ -1619,6 +1619,160 @@ if status == 0:
 
  ![download.png](09_panorama/download2.png)
 
+## 10 图像曝光
 
+高动态范围成像（英语：High Dynamic Range Imaging，[简称](https://baike.baidu.com/item/简称/10492947?fromModule=lemma_inlink)HDRI或HDR），在[计算机图形学](https://baike.baidu.com/item/计算机图形学/279486?fromModule=lemma_inlink)与[电影](https://baike.baidu.com/item/电影/31689?fromModule=lemma_inlink)[摄影术](https://baike.baidu.com/item/摄影术/8809259?fromModule=lemma_inlink)中，是用来实现比普通数位图像技术更大`曝光`[动态范围](https://baike.baidu.com/item/动态范围/6327032?fromModule=lemma_inlink)（即更大的明暗差别）的一组技术。高动态范围成像的目的就是要正确地表示真实世界中从太阳光直射到最暗的阴影这样大的范围亮度。
+
+ ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/opencv_bootcamp_10_high-dynamic-range-hdr.jpg)
+
+### 10-01 准备物料
+
+```python
+# Import Libraries
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/qa1hsyxt66pvj02/opencv_bootcamp_assets_NB10.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB10.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)   
+```
+
+### 10-02 基本思想
+
+1. 图像的动态范围限制为每通道 8 位 (0 - 255)
+2. 非常亮的像素饱和至 255
+3. 非常暗的像素最低为 0
+
+### 10-03 步骤一：捕捉多重曝光 
+
+ ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/opencv_bootcamp_10_hdr-image-sequence.jpg)
+
+```python
+def readImagesAndTimes():
+    # List of file names
+    filenames = ["img_0.033.jpg", "img_0.25.jpg", "img_2.5.jpg", "img_15.jpg"]
+
+    # List of exposure times
+    times = np.array([1 / 30.0, 0.25, 2.5, 15.0], dtype=np.float32)
+
+    # Read images
+    images = []
+    for filename in filenames:
+        im = cv2.imread(filename)
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        images.append(im)
+
+    return images, times
+```
+
+### 10-04 步骤二：对齐图像
+
+ ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/opencv_bootcamp_10_aligned-unaligned-hdr-comparison.jpg)
+
+```python
+# Read images and exposure times
+images, times = readImagesAndTimes()
+
+# Align Images
+alignMTB = cv2.createAlignMTB()
+alignMTB.process(images, images)
+```
+
+### 10-05 步骤三：构建相机响应函数
+
+```python
+# Find Camera Response Function (CRF)
+calibrateDebevec = cv2.createCalibrateDebevec()
+responseDebevec = calibrateDebevec.process(images, times)
+
+# Plot CRF
+x = np.arange(256, dtype=np.uint8)
+y = np.squeeze(responseDebevec)
+
+ax = plt.figure(figsize=(30, 10))
+plt.title("Debevec Inverse Camera Response Function", fontsize=24)
+plt.xlabel("Measured Pixel Value", fontsize=22)
+plt.ylabel("Calibrated Intensity", fontsize=22)
+plt.xlim([0, 260])
+plt.grid()
+plt.plot(x, y[:, 0], "r", x, y[:, 1], "g", x, y[:, 2], "b")
+```
+
+ ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download.png)
+
+### 10-06 步骤四：将曝光合并到 HDR 图像中
+
+```python
+# Merge images into an HDR linear image
+mergeDebevec = cv2.createMergeDebevec()
+hdrDebevec = mergeDebevec.process(images, times, responseDebevec)
+```
+
+### 10-07 步骤五：色调映射
+
+OpenCV 中提供了许多色调映射算法。我们选择 Durand 因为它有更多的自定义控制算法。
+
+```python
+# Tonemap using Drago's method to obtain 24-bit color image
+tonemapDrago = cv2.createTonemapDrago(1.0, 0.7)
+ldrDrago = tonemapDrago.process(hdrDebevec)
+ldrDrago = 3 * ldrDrago
+
+plt.figure(figsize=(20, 10));plt.imshow(np.clip(ldrDrago, 0, 1));plt.axis("off")
+
+cv2.imwrite("ldr-Drago.jpg", ldrDrago * 255)
+print("saved ldr-Drago.jpg")
+```
+
+#### Drago's method 
+
+![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download2.png)
+
+ #### Reinhard's method
+
+```python
+# Tonemap using Reinhard's method to obtain 24-bit color image
+print("Tonemaping using Reinhard's method ... ")
+tonemapReinhard = cv2.createTonemapReinhard(1.5, 0, 0, 0)
+ldrReinhard = tonemapReinhard.process(hdrDebevec)
+
+plt.figure(figsize=(20, 10));plt.imshow(np.clip(ldrReinhard, 0, 1));plt.axis("off")
+
+cv2.imwrite("ldr-Reinhard.jpg", ldrReinhard * 255)
+print("saved ldr-Reinhard.jpg")
+```
+
+![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download3.png)
+
+ #### Mantiuk's method
+
+```python
+# Tonemap using Mantiuk's method to obtain 24-bit color image
+print("Tonemaping using Mantiuk's method ... ")
+tonemapMantiuk = cv2.createTonemapMantiuk(2.2, 0.85, 1.2)
+ldrMantiuk = tonemapMantiuk.process(hdrDebevec)
+ldrMantiuk = 3 * ldrMantiuk
+
+plt.figure(figsize=(20, 10));plt.imshow(np.clip(ldrMantiuk, 0, 1));plt.axis("off")
+
+cv2.imwrite("ldr-Mantiuk.jpg", ldrMantiuk * 255)
+print("saved ldr-Mantiuk.jpg")
+```
+
+![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download4.png)
 
 谢谢阅读！
