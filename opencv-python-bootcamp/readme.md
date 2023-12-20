@@ -1775,19 +1775,19 @@ print("saved ldr-Mantiuk.jpg")
 
 ![opencv_bootcamp_10_high-dynamic-range-hdr.jpg](10_HDR/download4.png)
 
-## 12 对象追踪
+## 11 对象追踪
 
 1. 什么是追踪？
 2. 计算机视觉中的跟踪。
 3. 运动模型和外观模型。
 4. OpenCV API Tracker类。
 
-### 12-01 目标
+### 11-01 目标
 
 给定对象的初始位置，跟踪后续帧中的位置
 ![opencv_bootcamp_NB11_race_car_tracking](11_object_tracking/opencv_bootcamp_NB11_race_car_tracking.png)
 
-### 12-02 准备物料
+### 11-02 准备物料
 
 ```python
 import os
@@ -1821,7 +1821,7 @@ if not os.path.exists(asset_zip_path):
     download_and_unzip(URL, asset_zip_path)
 ```
 
-### 12-03 了解`OpenCV` 中的跟踪器类
+### 11-03 了解`OpenCV` 中的跟踪器类
 
 1. BOOSTING
 2. MIL 
@@ -1865,11 +1865,11 @@ def drawText(frame, txt, location, color=(50, 170, 50)):
 
 ```
 
-### 12-04 `GOTURN` 追踪器
+### 11-04 `GOTURN` 追踪器
 
  ![opencv_bootcamp_NB11_goturn.jpg](11_object_tracking/opencv_bootcamp_NB11_goturn.jpg)
 
-### 12-05 创建跟踪器实例
+### 11-05 创建跟踪器实例
 
 ```python
 # Set up tracker
@@ -1905,7 +1905,7 @@ else:
     tracker = cv2.legacy.TrackerMOSSE.create()
 ```
 
-### 12-06 读取输入视频并设置输出视频
+### 11-06 读取输入视频并设置输出视频
 
 ```python
 # Read video
@@ -1926,7 +1926,7 @@ video_out = cv2.VideoWriter(video_output_file_name, cv2.VideoWriter_fourcc(*"XVI
 video_output_file_name
 ```
 
-### 12-07 定义边界框
+### 11-07 定义边界框
 
 ```python
 # Define a bounding box
@@ -1938,7 +1938,7 @@ displayRectangle(frame, bbox)
 
 ![download.png](11_object_tracking/download.png)
 
-### 12-08 初始化跟踪器
+### 11-08 初始化跟踪器
 
 1. 一帧
 2. 边界框
@@ -1948,7 +1948,7 @@ displayRectangle(frame, bbox)
 ok = tracker.init(frame, bbox)
 ```
 
-### 12-09 读取帧并跟踪对象
+### 11-09 读取帧并跟踪对象
 
 ```python
 while True:
@@ -2039,7 +2039,7 @@ display(video)
 
 <iframe width="1024" height="640" src="https://www.youtube.com/embed/0bnWxc4zMvY" title="OpenCV Bootcamp NB11 race car GOTURN" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
-## 13 人脸探测
+## 12 人脸探测
 
 人脸探测 face detection 是人脸识别 face recognition 的前置步骤 
 
@@ -2144,8 +2144,246 @@ source.release()
 cv2.destroyWindow(win_name)
 ```
 
+## 13 TF对象探测
 
+基于深度学习的对象探测
 
+1. 架构：`Mobilenet based Single Shot Multi-Box (SSD)`
+2. 框架：`Tensorflow`
 
+### 13-01 准备工作
+
+```python
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+```
+
+1. 自动设置：通过运行下面的代码，所有必需的文件将立即下载并可供使用。
+2. 手动设置：手动下载并执行所需的设置。
+
+#### 手动下载配置
+
+1. 从 Tensorflow model ZOO 下载模型文件
+
+模型文件可以从 Tensorflow 对象检测模型动物园下载：tf2_detection_zoo.md
+下载mobilenet模型文件
+
+2. 您可以下载模型 TAR.GZ 文件并解压缩。
+
+3. 解压缩后，将文件（连同文件夹）放入模型文件夹中。
+
+**ssd_mobilenet_v2_coco_2018_03_29** 
+ |─ checkpoint 
+ |─ **frozen_inference_graph.pb** 
+ |─ model.ckpt.data-00000-of-00001 
+ |─ model.ckpt.index 
+ |─ model.ckpt.meta 
+ |─ pipeline.config 
+ |─ saved_model 
+ |─── saved_model.pb 
+ |─── variables 
+
+4. 创建配置文件
+
+1. 解压文件
+2. Run the [tf_text_graph_ssd.py](https://github.com/opencv/opencv/blob/master/samples/dnn/tf_text_graph_ssd.py) file with input as the path to the `frozen_graph.pb` file and output as desired.
+
+示例配置文件已包含在 models 文件夹中，用于下载并提取模型 tar.gz 文件的脚本。
+
+```python
+if not os.path.isdir('models'):
+    os.mkdir("models")
+
+if not os.path.isfile(modelFile):
+    os.chdir("models")
+    # Download the tensorflow Model
+    urllib.request.urlretrieve('http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v2_coco_2018_03_29.tar.gz', 'ssd_mobilenet_v2_coco_2018_03_29.tar.gz')
+
+    # Uncompress the file
+    !tar -xvf ssd_mobilenet_v2_coco_2018_03_29.tar.gz
+
+    # Delete the tar.gz file
+    os.remove('ssd_mobilenet_v2_coco_2018_03_29.tar.gz')
+
+    # Come back to the previous directory
+    os.chdir("..")
+```
+
+```text
+├─── coco_class_labels.txt        
+├─── tf_text_graph_ssd.py
+└─── models
+     ├───ssd_mobilenet_v2_coco_2018_03_29.pbtxt
+     └───ssd_mobilenet_v2_coco_2018_03_29
+         └───frozen_inference_graph.pb
+```
+
+#### 脚本下载配置
+
+```python
+# Import libraries
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+URL = r"https://www.dropbox.com/s/xoomeq2ids9551y/opencv_bootcamp_assets_NB13.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB13.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+
+```
+
+### 13-02 检查类别标签
+
+````python
+classFile  = "coco_class_labels.txt"
+with open(classFile) as fp:
+    labels = fp.read().split("\n")
+    
+print(labels)
+```
+['unlabeled', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'street sign', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'hat', 'backpack', 'umbrella', 'shoe', 'eye glasses', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle', 'plate', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'mirror', 'dining table', 'window', 'desk', 'toilet', 'door', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'blender', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush', 'hair brush', '']
+```
+````
+
+使用 DNN 模型执行推理的步骤总结如下：
+
+1. 将模型和输入图像加载到内存中。
+2. 向网络输入检测对象。
+3. 检测到到对象后，显示带有边界框和类标签。
+
+### 13-03 读入TF模型
+
+```python
+modelFile  = os.path.join("models", "ssd_mobilenet_v2_coco_2018_03_29", "frozen_inference_graph.pb")
+configFile = os.path.join("models", "ssd_mobilenet_v2_coco_2018_03_29.pbtxt")
+# Read the Tensorflow network
+net = cv2.dnn.readNetFromTensorflow(modelFile, configFile)
+```
+
+### 13-04 探测对象
+
+```python
+# For ach file in the directory
+def detect_objects(net, im, dim = 300):
+
+    # Create a blob from the image
+    blob = cv2.dnn.blobFromImage(im, 1.0, size=(dim, dim), mean=(0, 0, 0), swapRB=True, crop=False)
+
+    # Pass blob to the network
+    net.setInput(blob)
+
+    # Peform Prediction
+    objects = net.forward()
+    return objects
+
+FONTFACE = cv2.FONT_HERSHEY_SIMPLEX
+FONT_SCALE = 0.7
+THICKNESS = 1
+
+def display_text(im, text, x, y):
+    # Get text size
+    textSize = cv2.getTextSize(text, FONTFACE, FONT_SCALE, THICKNESS)
+    dim = textSize[0]
+    baseline = textSize[1]
+
+    # Use text size to create a black rectangle
+    cv2.rectangle(
+        im,
+        (x, y - dim[1] - baseline),
+        (x + dim[0], y + baseline),
+        (0, 0, 0),
+        cv2.FILLED,
+    )
+
+    # Display text inside the rectangle
+    cv2.putText(
+        im,
+        text,
+        (x, y - 5),
+        FONTFACE,
+        FONT_SCALE,
+        (0, 255, 255),
+        THICKNESS,
+        cv2.LINE_AA,
+    )
+```
+
+### 13-05 展示对象
+
+```python
+def display_objects(im, objects, threshold=0.25):
+    rows = im.shape[0]
+    cols = im.shape[1]
+
+    # For every Detected Object
+    for i in range(objects.shape[2]):
+        # Find the class and confidence
+        classId = int(objects[0, 0, i, 1])
+        score = float(objects[0, 0, i, 2])
+
+        # Recover original cordinates from normalized coordinates
+        x = int(objects[0, 0, i, 3] * cols)
+        y = int(objects[0, 0, i, 4] * rows)
+        w = int(objects[0, 0, i, 5] * cols - x)
+        h = int(objects[0, 0, i, 6] * rows - y)
+
+        # Check if the detection is of good quality
+        if score > threshold:
+            display_text(im, "{}".format(labels[classId]), x, y)
+            cv2.rectangle(im, (x, y), (x + w, y + h), (255, 255, 255), 2)
+
+    # Convert Image to RGB since we are using Matplotlib for displaying image
+    mp_img = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    plt.figure(figsize=(30, 10))
+    plt.imshow(mp_img)
+    plt.show()
+```
+
+### 13-06 结果集
+
+```python
+im = cv2.imread(os.path.join("images", "street.jpg"))
+objects = detect_objects(net, im)
+display_objects(im, objects)
+```
+
+ ![download1](13_tf_object_detection/download1.png)
+
+```python
+im = cv2.imread(os.path.join("images", "baseball.jpg"))
+objects = detect_objects(net, im)
+display_objects(im, objects, 0.2)
+```
+
+ ![download2](13_tf_object_detection/download2.png)
+
+### 13-07 误报
+
+```python
+im = cv2.imread(os.path.join("images", "soccer.jpg"))
+objects = detect_objects(net, im)
+display_objects(im, objects)
+```
+
+ ![download3](13_tf_object_detection/download3.png)
 
 谢谢阅读！
