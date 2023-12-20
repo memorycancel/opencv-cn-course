@@ -2386,4 +2386,202 @@ display_objects(im, objects)
 
  ![download3](13_tf_object_detection/download3.png)
 
+## 14 使用 OpenPose 进行人体姿势识别
+
+使用Part Affinity Fields的实时多人 2D 人体姿势识别 (2017)
+
+Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields (2017)
+
+[arXiv:1611.08050](https://arxiv.org/abs/1812.08008) [cs.CV] 14 Apr 2017
+
+### 14-01 准备物料
+
+```python
+import os
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+from IPython.display import YouTubeVideo, display, Image
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+    urlretrieve(url, save_path)
+    try:
+        with ZipFile(save_path) as z:
+            z.extractall(os.path.split(save_path)[0])
+        print("Done")
+    except Exception as e:
+        print("\nInvalid file.", e)
+URL = r"https://www.dropbox.com/s/089r2yg6aao858l/opencv_bootcamp_assets_NB14.zip?dl=1"
+asset_zip_path = os.path.join(os.getcwd(), f"opencv_bootcamp_assets_NB14.zip")
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+```
+
+### 14-02 摘要
+
+1. 在其他地方训练，在 OpenCV 应用程序中应用模型推理
+
+2. 支持 Caffe、Tensorflow、Torch 和 Darknet。
+
+3. 支持的层：AbsVal、AveragePooling、BatchNormalization、串联、卷积（包括膨胀卷积）、Crop、反卷积、DetectionOutput（SSD  特定层）、Dropout、Eltwise（+、*、max）、Flatten、FullyConnected、LRN、LSTM、MaxPooling 、MaxUnpooling、MVN、NormalizeBBox（SSD  特定层）、Padding、Permute、Power、PReLU（包括具有通道特定斜率的 ChannelPReLU）、PriorBox（SSD  特定层）、ReLU、RNN、Scale、Shift、Sigmoid、Slice、 Softmax、分割、TanH
+
+4. 使用在多人图像数据集 (MPI) 上训练的 Caffe 模型来演示单个人的人体姿势识别探测。
+
+```python
+video = YouTubeVideo("RyCsSc_2ZEI", width=1024, height=640)
+display(video)
+```
+
+<iframe width="1024" height="640" src="https://www.youtube.com/embed/RyCsSc_2ZEI" title="OpenCV Bootcamp NB14 Ice Hockey" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 14-03 加载 Caffe 模型
+
+典型的 Caffe 模型有两个文件
+
+1. 架构**Architecture**：在 .prototxt 文件中定义
+2. 权重**Weights**：在 .caffemodel 文件中定义
+
+```python
+protoFile   = "pose_deploy_linevec_faster_4_stages.prototxt"
+weightsFile = os.path.join("model", "pose_iter_160000.caffemodel")
+
+nPoints = 15
+POSE_PAIRS = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [1, 5],
+    [5, 6],
+    [6, 7],
+    [1, 14],
+    [14, 8],
+    [8, 9],
+    [9, 10],
+    [14, 11],
+    [11, 12],
+    [12, 13],
+]
+net = cv2.dnn.readNetFromCaffe(protoFile, weightsFile)
+```
+
+### 14-04 读入图片
+
+```python
+im = cv2.imread("Tiger_Woods_crop.png")
+im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+
+inWidth  = im.shape[1]
+inHeight = im.shape[0]
+
+Image(filename="Tiger_Woods.png")
+```
+
+ ![download1](14_pose_estimation_using_openpose/download1.png)
+
+### 14-05 将图像转换为 blob
+
+*Blob*：即计算机视觉*图像*中的具有相似颜色、纹理等特征所组成的一块连通区域。
+
+```python
+netInputSize = (368, 368)
+inpBlob = cv2.dnn.blobFromImage(im, 1.0 / 255, netInputSize, (0, 0, 0), swapRB=True, crop=False)
+net.setInput(inpBlob)
+```
+
+### 14-06 运行推理（前向传递）
+
+```python
+# Forward Pass
+output = net.forward()
+
+# Display probability maps
+plt.figure(figsize=(20, 5))
+for i in range(nPoints):
+    probMap = output[0, i, :, :]
+    displayMap = cv2.resize(probMap, (inWidth, inHeight), cv2.INTER_LINEAR)
+    
+    plt.subplot(2, 8, i + 1)
+    plt.axis("off")
+    plt.imshow(displayMap, cmap="jet")
+```
+
+  ![download2](14_pose_estimation_using_openpose/download2.png)
+
+### 14-07 提取点
+
+```python
+# X and Y Scale
+scaleX = inWidth  / output.shape[3]
+scaleY = inHeight / output.shape[2]
+
+# Empty list to store the detected keypoints
+points = []
+
+# Treshold
+threshold = 0.1
+
+for i in range(nPoints):
+    # Obtain probability map
+    probMap = output[0, i, :, :]
+
+    # Find global maxima of the probMap.
+    minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
+
+    # Scale the point to fit on the original image
+    x = scaleX * point[0]
+    y = scaleY * point[1]
+
+    if prob > threshold:
+        # Add the point to the list if the probability is greater than the threshold
+        points.append((int(x), int(y)))
+    else:
+        points.append(None)
+```
+
+### 14-08 显示点和骨架
+
+```python
+imPoints = im.copy()
+imSkeleton = im.copy()
+
+# Draw points
+for i, p in enumerate(points):
+    cv2.circle(imPoints, p, 8, (255, 255, 0), thickness=-1, lineType=cv2.FILLED)
+    cv2.putText(imPoints, "{}".format(i), p, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, lineType=cv2.LINE_AA)
+
+# Draw skeleton
+for pair in POSE_PAIRS:
+    partA = pair[0]
+    partB = pair[1]
+
+    if points[partA] and points[partB]:
+        cv2.line(imSkeleton, points[partA], points[partB], (255, 255, 0), 2)
+        cv2.circle(imSkeleton, points[partA], 8, (255, 0, 0), thickness=-1, lineType=cv2.FILLED)
+
+plt.figure(figsize=(50, 50))
+
+plt.subplot(121)
+plt.axis("off")
+plt.imshow(imPoints)
+
+plt.subplot(122)
+plt.axis("off")
+plt.imshow(imSkeleton)
+```
+
+  ![download3](14_pose_estimation_using_openpose/download3.png)
+
+```python
+Image(filename="Milton_Golf_Swing.png") 
+```
+
+  ![download4](14_pose_estimation_using_openpose/download4.png)
+
+
+
+完结散花！
+
 谢谢阅读！
