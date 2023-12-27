@@ -241,3 +241,278 @@ PS: *A gradient is a vector, and slope is a scalar*. 上面算的是一维的，
 + 训练时期包括通过网络处理整个训练数据集。因此，训练时期的迭代次数等于训练图像的数量除以批量大小。
 + 每个训练周期代表训练过程的完整过程，直到损失函数稳定。注意：在实践中，我们不仅仅依靠训练损失来评估训练模型的质量。还需要验证损失，我们将在后续文章中介绍这一点。
 
+
+
+## 03 线性回归建模
+
+<iframe width="899" height="506" src="https://www.youtube.com/embed/yuAZQJ5BnJk" title="Linear Regression Tutorial using Tensorflow and Keras" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 学习如何使用 Keras 进行线性回归建模
+
+在研究深度神经网络之前，我们将介绍简单（线性）神经网络的基本组成部分。我们将从线性回归的主题开始。由于线性回归可以建模为神经网络，因此它提供了一个很好的示例来介绍神经网络的基本组件。回归Regression是监督学习的一种形式，旨在对一个或多个输入变量（特征）与连续（目标）变量之间的关系进行建模。我们假设输入变量 x 和目标变量 y  之间的关系可以表示为输入的加权和（即模型的参数是线性的）。简而言之，线性回归旨在学习一种**将一个或多个输入特征映射到单个数值目标值的函数**。
+
+ ![](03_modeling_linear_regression/download1.png)
+
+### 03-00目录
+
+1. 了解数据集
+2. 线性回归模型
+3. 神经网络概念和术语
+4. 在 Keras 中建模神经网络
+5. 结论
+
+```py
+import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input, Activation
+from tensorflow.keras.datasets import boston_housing
+from tensorflow.keras import layers
+
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+SEED_VALUE = 42
+
+# Fix seed to make training deterministic.
+np.random.seed(SEED_VALUE)
+tf.random.set_seed(SEED_VALUE)
+```
+
+### 03-01 了解数据集
+
+#### 03-01-01 加载波士顿住房数据集
+
+在本文中，我们将使用波士顿住房数据集。该数据集包含美国人口普查局收集的有关马萨诸塞州波士顿住房的信息。它已在文献中广泛用于基准算法，并且由于其数据量小也适合演示目的。该数据集包含 14 个独特属性，其中包括给定郊区房屋的中值（千美元价格）。我们将使用该数据集作为示例，说明如何开发一个模型，使我们能够根据数据集中的单个属性（房屋中的平均房间数）来预测房屋的中位价格。
+
+Keras 提供了 load_data() 函数来加载该数据集。数据集通常分为训练`train`和测试`test`集，load_data() 函数为每个数据集返回一个元组。每个元组包含一个二维特征数组（例如 X_train）和一个向量，该向量包含数据集中每个样本的关联目标值（例如 y_train）。例如，X_train 中的行代表数据集中的各种样本，列代表各种特征。在本笔记本中，我们将仅利用训练数据来演示如何训练模型。然而，在实践中，使用测试数据来了解训练后的模型在未见过的数据上的表现非常重要。
+
+```python
+# Load the Boston housing dataset.
+(X_train, y_train), (X_test, y_test) = boston_housing.load_data()
+
+print(X_train.shape)
+print("\n")
+print("Input features: ", X_train[0])
+print("\n")
+print("Output target: ", y_train[0])
+```
+
+```text
+Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/boston_housing.npz
+57026/57026 [==============================] - 0s 0us/step
+(404, 13)
+
+Input features:  [  1.23247   0.        8.14      0.        0.538     6.142    91.7
+   3.9769    4.      307.       21.      396.9      18.72   ]
+Output target:  15.2
+```
+
+#### 03-01-02 从数据集中提取特征
+
+在此笔记本中，我们将仅使用数据集中的单个特征，因此为了简单起见，我们将特征数据存储在一个新变量中。
+
+```python
+boston_features = {
+    "Average Number of Rooms": 5,
+}
+
+X_train_1d = X_train[:, boston_features["Average Number of Rooms"]]
+print(X_train_1d.shape)
+
+X_test_1d = X_test[:, boston_features["Average Number of Rooms"]]
+# (404,)
+```
+
+#### 03-01-03 绘制特征点
+
+在这里，我们绘制了房屋的中位价格与单一特征（“平均房间数 Average Number of Rooms'”）的关系。
+
+```python
+plt.figure(figsize=(15, 5))
+plt.xlabel("Average Number of Rooms")
+plt.ylabel("Median Price [$K]")
+plt.grid("on")
+plt.scatter(X_train_1d[:], y_train, color="green", alpha=0.5)
+# <matplotlib.collections.PathCollection at 0x7f21bbde9d60>
+```
+
+ ![](03_modeling_linear_regression/download2.png)
+
+### 03-02 线性回归模型
+
+让我们首先清楚地了解我们正在努力实现的目标。下图显示了单个自变量（房间数量）和因变量（房屋中位价格）的训练数据。我们希望使用线性回归来为这些数据开发一个可靠的模型。在此示例中，模型只是一条由斜率 (m) 和 y 截距 (b) 定义的直线。
+
+ ![](03_modeling_linear_regression/download3.png)
+
+### 03-03 神经网络概念和术语
+
+下图显示了如何将该模型表示为简单（单神经元）网络。我们将使用这个简单的示例来介绍神经网络组件和术语。输入数据 (x)  由单个特征（房间的平均数量）组成，预测输出 (y′)  是标量（房屋的预测中位价格）。请注意，数据集中的每个数据样本代表波士顿郊区的统计数据。模型参数（m 和  b）在训练过程中迭代学习。您可能已经知道，模型参数可以通过封闭形式的**普通最小二乘法** (Ordinary Least Squares-OSL)  来计算。然而，我们也可以使用称为梯度下降**Gradient Descent**的数值技术迭代地解决这个问题，这是神经网络训练的基础。此处我们不介绍梯度下降的细节，但重要的是要了解它是一种用于调整模型参数的迭代技术。
+
+ ![](03_modeling_linear_regression/download4.png)
+
+该网络仅包含一个神经元，该神经元接受单个输入 (x) 并产生单个输出  (y′)，即房屋的预测（平均）价格。单个神经元有两个可训练参数，即线性模型的斜率slope (m) 和 y 轴截距y-intercept   (b)。这些参数通常分别称为权重weight和偏差bias。在回归问题中，模型通常具有多个输入特征，其中每个输入都有一个关联的权重  (wi)，但在本例中，我们将仅使用单个输入特征来预测输出。因此，一般来说，一个神经元通常具有多个权重（w1、w2、w3 等）和一个偏置项  (b)。在此示例中，您可以将神经元视为 mx+b 的数学计算，它产生预测值 y′。
+
+下面显示了同一模型的稍微更正式的图表。在这里，我们引入了反馈循环**feedback loop** 的概念，它显示了模型参数（w和b) 在训练过程中更新。最初，模型参数被初始化为小的随机值。在训练过程中，当训练数据通过网络传递时，模型的预测值 (y′)  会与数据集中给定样本的真实值 (y)  进行比较。该差异用作计算损失，然后用作网络中的反馈，以改进预测的方式调整模型参数。这个过程涉及两个步骤，称为梯度下降和反向传播。在这个阶段，了解其工作原理的数学细节并不重要，但重要的是要了解训练模型的迭代过程。
+
+ ![](03_modeling_linear_regression/download5.png)
+
+我们使用的损失函数可以有多种形式。在这个例子中，我们将使用均方误差（MSE），这是回归问题中非常常见的损失函数。
+$$
+J = \frac{1}{m}\sum_{i=1}^{m} (y_{i}' - y_{i})^2
+$$
+**基本思想是我们希望最小化该函数的值**，该函数表示我们的模型和训练数据集之间的误差。在上式中，m是训练样本的数量。
+
+### 03-04 在 Keras 中建模神经网络
+
+上一节中的网络图代表了最简单的神经网络。该网络有一个由输出 wx+b 的单个神经元组成的单层。对于每个训练样本，预测输出 y′
+
+与训练数据的实际值进行比较，并计算损失。然后可以使用损失来微调（更新）模型参数。
+
+与训练神经网络相关的所有细节均由 Keras 处理，总结如下工作流程：
+
+1. 使用 Keras 中的预定义层构建/定义网络模型。
+2. 使用 model.compile() 编译模型
+3. 使用 model.fit() 训练模型
+4. 预测输出 model.predict()
+
+#### 03-04-01 定义 Keras 模型
+
+```python
+model = Sequential()
+
+# Define the model consisting of a single neuron. 包含一个单神经元
+model.add(Dense(units=1, input_shape=(1,)))
+
+# Display a summary of the model architecture.
+model.summary()
+```
+
+```text
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense (Dense)               (None, 1)                 2                               
+=================================================================
+Total params: 2
+Trainable params: 2
+Non-trainable params: 0
+```
+
+#### 03-04-02 编译模型
+
+```python
+model.compile(optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.005), loss="mse")
+```
+
+#### 03-04-03 训练模型
+
+```python
+history = model.fit(
+    X_train_1d, 
+    y_train, 
+    batch_size=16, 
+    epochs=101, 
+    validation_split=0.3,
+)
+```
+
+```text
+Epoch 1/101
+18/18 [==============================] - 1s 18ms/step - loss: 218.3039 - val_loss: 266.6791
+Epoch 2/101
+18/18 [==============================] - 0s 5ms/step - loss: 200.4328 - val_loss: 248.9743
+...
+...
+...
+Epoch 100/101
+18/18 [==============================] - 0s 3ms/step - loss: 53.9164 - val_loss: 74.0994
+Epoch 101/101
+18/18 [==============================] - 0s 3ms/step - loss: 53.8947 - val_loss: 74.0549
+```
+
+#### 03-04-04 绘制训练结果
+
+```python
+def plot_loss(history):
+    plt.figure(figsize=(20,5))
+    plt.plot(history.history['loss'], 'g', label='Training Loss')
+    plt.plot(history.history['val_loss'], 'b', label='Validation Loss')
+    plt.xlim([0, 100])
+    plt.ylim([0, 300])
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
+
+plot_loss(history)
+```
+
+ ![](03_modeling_linear_regression/download6.png)
+
+上面的损耗曲线相当典型。首先，请注意有两条曲线，一条用于训练损失，一条用于验证损失。两者最初都很大，然后稳步下降，最终趋于平稳，在大约 30 个 epoch 后没有进一步改善。由于模型仅在训练数据上进行训练，因此训练损失低于验证损失也是相当典型的。
+
+#### 03-04-05 使用模型进行预测
+
+我们现在可以使用Keras 中的predict() 方法进行单个预测。在此示例中，我们将值列表传递给模型（表示平均房间数），模型为每个输入返回房屋价格的预测值。
+
+```python
+# Predict the median price of a home with [3, 4, 5, 6, 7] rooms.
+x = [3, 4, 5, 6, 7]
+y_pred = model.predict(x)
+for idx in range(len(x)):
+    print(f"Predicted price of a home with {x[idx]} rooms: ${int(y_pred[idx] * 10) / 10}K")
+```
+
+```text
+1/1 [==============================] - 0s 99ms/step
+Predicted price of a home with 3 rooms: $11.0K
+Predicted price of a home with 4 rooms: $14.4K
+Predicted price of a home with 5 rooms: $17.9K
+Predicted price of a home with 6 rooms: $21.3K
+Predicted price of a home with 7 rooms: $24.8K
+```
+
+#### 03-04-06 绘制模型和数据
+
+```python
+# Generate feature data that spans the range of interest for the independent variable.
+x = np.linspace(3, 9, 10)
+
+# Use the model to predict the dependent variable.
+y = model.predict(x)
+# 1/1 [==============================] - 0s 44ms/step
+
+def plot_data(x_data, y_data, x, y, title=None):
+    plt.figure(figsize=(15,5))
+    plt.scatter(x_data, y_data, label='Ground Truth', color='green', alpha=0.5)
+    plt.plot(x, y, color='k', label='Model Predictions')
+    plt.xlim([3,9])
+    plt.ylim([0,60])
+    plt.xlabel('Average Number of Rooms')
+    plt.ylabel('Price [$K]')
+    plt.title(title)
+    plt.grid(True)
+    plt.legend()
+
+```
+
+训练集：
+
+```python
+plot_data(X_train_1d, y_train, x, y, title='Training Dataset')
+```
+
+ ![](03_modeling_linear_regression/download7.png)
+
+测试集：
+
+```python
+plot_data(X_test_1d, y_test, x, y, title='Test Dataset')
+```
+
+ ![](03_modeling_linear_regression/download8.png)
+
+### 03-05 结论
+
+本文我们在简单神经网络的背景下介绍了线性回归模型。我们展示了如何使用 Keras 来建模和训练网络以学习线性模型的参数以及如何可视化模型预测。
