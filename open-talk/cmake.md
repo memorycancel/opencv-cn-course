@@ -219,5 +219,40 @@ target_link_libraries(app calc)
 
 
 
+8 实战fmt库
+
+```shell
+git clone https://github.com/fmtlib/fmt
+cd fmt
+cmake
+make
+# 文件夹会生成 libfmt.so libfmt.a
+touch test123.cpp
+vi test123.cpp
+```
+
+`test123.cpp`:
+
+```cpp
+#include <vector>
+#include <fmt/ranges.h>
+
+int main() {
+  std::vector<int> v = {1, 2, 3};
+  fmt::print("{}\n", v);
+}
+```
+
+run
+
+```shell
+g++ test123.cpp libfmt.a -o test123
+./test123
+```
+
+[1, 2, 3]
+
+
+
 
 
