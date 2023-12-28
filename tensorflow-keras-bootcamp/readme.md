@@ -516,3 +516,413 @@ plot_data(X_test_1d, y_test, x, y, title='Test Dataset')
 ### 03-05 结论
 
 本文我们在简单神经网络的背景下介绍了线性回归模型。我们展示了如何使用 Keras 来建模和训练网络以学习线性模型的参数以及如何可视化模型预测。
+
+
+
+
+## 04 使用 MLP 进行 MNIST 数字分类
+
+### 在 Keras 中使用前馈网络进行图像分类
+
+下面我们将介绍与涉及两个以上类别的一般分类问题相关的几个新概念。当类的数量超过两个时，这有时被称为多项式回归或 softmax  回归。具体来说，我们将了解如何使用前馈多层感知器（Multilayer Perceptron Network）网络对 MNIST 数据集中的手写数字进行分类。 ~~MLP  并不是处理图像数据的首选方式，但这可以作为引入一些新概念的一个很好的例子~~。 MNIST 手写数字数据集包含在 Tensorflow  中，可以轻松导入和加载，如下所示。使用此数据集和简单的前馈网络，我们将演示一种如何处理图像数据并构建对数字 [0,9] 进行分类的网络的方法。
+
+ ![](04_MNIST_digit_classification_using_MLP/download1.png)
+
+### 04-00 目录
+
+1. 加载 MNIST 数据集
+2. 数据集预处理
+3. 模型架构
+4. 模型实现
+5. 模型评估
+6. 结论
+
+准备导入必须的库和准备种子数据
+
+```python
+import random
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import tensorflow as tf
+
+from tensorflow.keras import layers
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["image.cmap"] = "gray"
+
+from tensorflow.keras.datasets import fashion_mnist
+
+SEED_VALUE = 42
+
+# Fix seed to make training deterministic.
+random.seed(SEED_VALUE)
+np.random.seed(SEED_VALUE)
+tf.random.set_seed(SEED_VALUE)
+```
+
+### 04-01 加载并分割 MNIST 数据集
+
+MNIST 数据集包含 70,000 张图像，分为 60,000 张用于训练，10,000 张用于测试。保留一部分数据用于验证可以通过进一步划分训练数据来完成。如下所示，我们从训练数据中提取 10,000 个样本用于验证。
+
+```python
+(X_train_all, y_train_all), (X_test, y_test) = mnist.load_data()
+
+X_valid = X_train_all[:10000]
+X_train = X_train_all[10000:]
+
+y_valid = y_train_all[:10000]
+y_train = y_train_all[10000:]
+
+print(X_train.shape)
+print(X_valid.shape)
+print(X_test.shape)
+#Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz
+#11490434/11490434 [==============================] - 2s 0us/step
+#(50000, 28, 28)
+#(10000, 28, 28)
+#(10000, 28, 28)
+
+plt.figure(figsize=(18, 5))
+for i in range(3):
+    plt.subplot(1, 3, i + 1)
+    plt.axis(True)
+    plt.imshow(X_train[i], cmap="gray")
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
+
+```
+
+ ![](04_MNIST_digit_classification_using_MLP/download2.png)
+
+### 04-02 数据集预处理
+
+#### 04-02-01 输入特征变换和归一化
+
+由于我们现在使用图像作为输入，因此我们需要找到一些逻辑方法将图像数据表示为一组特征。对于该数据集来说，一种实际上效果相当好的简单方法是假设像素强度是特征。将图像数据转换为我们可以处理的一组特征的一种方法是将 2D 数组展平为 1D 数组。 28x28 输入图像因此成为包含 784 个特征的一维数组。请注意，我们还将像素强度标准化为 [0, 1]  范围内。这在处理图像数据时很常见，这有助于更有效地训练模型。另外，需要明确的是，使用像素强度作为特征是一种幼稚低级的方法，我们在这里故意使用这种方法是为了让事情变得简单。正如我们将在后续文章中看到的，我们将了解卷积神经网络 (CNN)，它使用更先进的技术来表示和处理神经网络中的图像数据。
+
+```python
+X_train = X_train.reshape((X_train.shape[0], 28 * 28))
+X_train = X_train.astype("float32") / 255
+
+X_test = X_test.reshape((X_test.shape[0], 28 * 28))
+X_test = X_test.astype("float32") / 255
+
+X_valid = X_valid.reshape((X_valid.shape[0], 28 * 28))
+X_valid = X_valid.astype("float32") / 255
+```
+
+#### 04-02-02 标签编码选项
+
+在处理分类数据时，在通过机器学习算法处理数据之前，需要将目标标签表示为数值。标签编码是将类标签从字符串转换为数值的过程。对于如何对每个类别的标签进行数字编码，我们有几个选项。我们可以使用序数整数编码，其中为每个类分配一个整数，或者我们可以使用一种称为 one-hot  编码的技术，该技术使用单独的二进制向量对每个类标签进行编码。根据数据集的不同，一种方法可能优于另一种方法，但在大多数情况下，通常使用  one-hot 编码。由于这是一篇介绍性文章，我们将简要演示每种编码的样子，以便您熟悉这两种表示形式。
+
+##### A 整数标签编码
+
+包含分类标签的数据集可以在内部将标签表示为字符串或整数。然而，在通过神经网络处理数据集之前，标签必须数字表示。当数据集包含分类数据的整数标签时，会提供一个类标签文件，该文件定义从类名称到数据集中的整数表示的映射，以便在需要时可以将整数映射回类名称。作为一个具体示例，请考虑下面显示的 Fashion MNIST 数据集的字典映射。
+
+```text
+Label   Description
+0       T-shirt/top
+1       Trouser
+2       Pullover
+3       Dress
+4       Coat
+5       Sandal
+6       Shirt
+7       Sneaker
+8       Bag
+9       Ankle boot
+```
+
+Fashion MNIST  数据集本身包含整数标签，我们可以通过加载数据集并打印出一些标签来验证这一点，如下面代码单元的输出所示。这种类型的标签编码称为整数编码，因为使用唯一的整数对类（字符串）标签进行编码。但是，当类标签彼此没有关系时，通常建议改用 One-Hot Encoding，这将在下一节中介绍。
+
+```python
+# Load the Fashion MNIST dataset.
+((X_train_fashion, y_train_fashion), (_, _)) = fashion_mnist.load_data()
+
+# The labels in the Fashion MNIST dataset are encoded as integers.
+print(y_train_fashion[0:9])
+
+#Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/train-labels-idx1-ubyte.gz
+#29515/29515 [==============================] - 0s 1us/step
+#Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/train-images-idx3-ubyte.gz
+#26421880/26421880 [==============================] - 3s 0us/step
+#Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/t10k-labels-idx1-ubyte.gz
+#5148/5148 [==============================] - 0s 0us/step
+#Downloading data from https://storage.googleapis.com/tensorflow/tf-keras-datasets/t10k-images-idx3-ubyte.gz
+#4422102/4422102 [==============================] - 1s 0us/step
+
+#[9 0 0 3 0 2 7 2 5]
+```
+
+##### B One-Hot标签编码
+
+One-hot 编码是一种将分类标签表示为 one-hot 编码向量的技术。因此，我们可以使用 Keras 中的  to_categorical()  函数作为预处理步骤，将每个标签表示为二进制向量，而不是将类标签表示为唯一的整数。在这种情况下，每个标签都转换为二进制向量，其中向量的长度等于类的数量。除了与整数标签相对应的元素之外，所有条目都设置为零。
+
+```python
+y_train_onehot = to_categorical(y_train_fashion[0:9])
+print(y_train_onehot)
+```
+
+```text
+[[0. 0. 0. 0. 0. 0. 0. 0. 0. 1.]
+ [1. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ [1. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ [0. 0. 0. 1. 0. 0. 0. 0. 0. 0.]
+ [1. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ [0. 0. 1. 0. 0. 0. 0. 0. 0. 0.]
+ [0. 0. 0. 0. 0. 0. 0. 1. 0. 0.]
+ [0. 0. 1. 0. 0. 0. 0. 0. 0. 0.]
+ [0. 0. 0. 0. 0. 1. 0. 0. 0. 0.]]
+```
+
+注意：由于 MNIST 数字数据集中的标签具有直接对应于类标签的整数标签（即整数 4 对应于类标签  4），因此技术上不需要类映射文件。此外，由于整数标签具有自然排序，因此我们可以直接使用整数标签。但由于最常使用 one-hot  编码，我们将继续以这种方式对标签进行编码，如下所示。
+
+```python
+# Convert integer labels to one-hot encoded vectors.
+y_train = to_categorical(y_train)
+y_valid = to_categorical(y_valid)
+y_test  = to_categorical(y_test)
+```
+
+### 04-03 模型架构
+
+#### 04-03-01 深度神经网络架构
+
+下面显示的网络架构有多层。一个输入层、两个隐藏层和一个输出层。关于此架构有几点需要注意。
+
+1. 输入数据：图像输入数据从二维数组 [28x28] 预处理（展平）为长度 [784x1] 的一维向量，其中该输入向量中的元素是归一化像素强度。网络的输入有时被称为输入“层”，但从技术上讲，它不是网络中的层，因为没有与之相关的可训练参数。
+2. 隐藏层：我们有两个隐藏层，其中包含一定数量的神经元（我们需要指定）。这些层中的每个神经元都有一个非线性激活函数（例如 ReLU、Sigmoid 等）。
+3. 输出层：现在，我们在输出层中有 10 个神经元来表示 10 个不同的类别（数字：0 到 9），而不是回归示例中的单个神经元。
+4. 密集层：网络中的所有层都是完全连接的，这意味着给定层中的每个神经元都与前一层中的每个神经元完全连接（或密集）。与每层关联的权重以粗体表示，以指示这些矩阵包含网络中相邻层之间的所有连接的每个权重。
+5. Softmax 函数：输出层中每个神经元的值通过 softmax 函数传递，以生成数据集中十个数字中每个数字的概率得分。
+6. 网络输出：网络输出（y′) 是一个长度为 10 的向量，包含每个输出神经元的概率。预测类标签只需要传递 (y′)通过argmax函数来确定预测标签的索引。
+7. 损失函数：使用的损失函数是交叉熵损失，这通常是分类问题的首选损失函数。它是根据地面实况标签（y) 和网络的输出概率 (y′)。注意 y 和 y′都是长度等于类数的向量。
+
+尽管该图看起来与线性回归示例中的单层感知器有很大不同，但就训练和预测期间发生的处理而言，它基本上非常相似。我们仍然根据网络的预测输出和输入的真实标签来计算损失。反向传播用于计算损失相对于网络权重的梯度。优化器（实现梯度下降）用于更新神经网络中的权重。
+
+ ![](04_MNIST_digit_classification_using_MLP/download3.png)
+
+### 04-04 模型实现
+
+在这里，我们使用 Keras 定义模型架构，该架构具有两个密集层（每个密集层有 128 个神经元）和一个有 10  个神经元的输出层。输出层中的每个神经元对应于数据集中的类别标签（0 到  9），其中每个神经元的输出表示输入图像对应于与该神经元关联的类别的概率。例如，如果第 5 个神经元的输出为 0.87，则意味着输入图像为 4  的概率为 87%（因为第一类为 0，因此第 5 个神经元代表数字 4）。
+
+请注意，第一个隐藏层的输入形状为 [784,1]，因为  28x28 图像被展平为长度为 784 的向量。每个隐藏层中的神经元都具有称为“ReLU”的激活函数，它代表“整流线性单元”  。然后，输出层中的神经元通过“softmax”函数，该函数对原始输出进行转换（标准化），可以将其解释为如上所述的概率。
+
+我们不会在这篇文章中介绍 softmax 函数或交叉熵损失函数的细节，因为这些是更高级的主题，但简单地说，softmax  函数对网络的输出进行归一化并将其转换为概率。交叉熵损失函数计算预测输出概率和地面真实标签之间的损失。预测的输出概率距离目标标签越远，损失就越高。
+
+#### 04-04-01 定义模型
+
+```python
+# Instantiate the model.
+model = tf.keras.Sequential()
+
+# Build the model.
+model.add(Dense(128, activation='relu', input_shape=(X_train.shape[1],)))
+model.add(Dense(128, activation='relu'))
+model.add(Dense(10,  activation="softmax"))
+
+# Display the model summary.
+model.summary()
+```
+
+```text
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ dense (Dense)               (None, 128)               100480    
+                                                                 
+ dense_1 (Dense)             (None, 128)               16512     
+                                                                 
+ dense_2 (Dense)             (None, 10)                1290      
+                                                                 
+=================================================================
+Total params: 118,282
+Trainable params: 118,282
+Non-trainable params: 0
+```
+
+#### 04-04-02 编译模型
+
+此步骤定义将在训练循环中使用的优化器**Optimizer**和损失函数**Loss Function**。我们也可以在这里指定要跟踪的任何其他指标。
+
+优化器：这里，我们将使用 Keras 中的 RMSProp 优化器。
+
+损失函数：如上所述，分类问题的首选损失函数是交叉熵。但根据标签的编码方式，我们需要指定交叉熵损失函数的正确形式。如果标签是one-hot编码的，那么你应该将损失函数指定为categorical_crossentropy，如果标签是整数编码的，那么你应该使用sparse_categorical_crossentropy。进行二元分类时，应该使用binary_crossentropy作为损失函数。由于我们在本例中使用 one-hot 编码，因此我们将损失函数指定为 categorical_crossentropy。
+
+指标**Metrics**：最后，我们还指定准确性作为训练期间记录的附加指标，以便我们可以在训练完成后绘制它。训练损失和验证损失会自动记录，因此无需指定。
+
+```python
+model.compile(
+    optimizer="rmsprop",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"],
+)
+```
+
+#### 04-04-03 训练模型
+
+为了训练模型，我们调用 Keras 中的 fit()  方法。请注意，由于我们将原始训练数据分为训练数据集和验证数据集，因此我们需要使用validation_data  =（X_valid，y_valid））显式指定验证数据集。回想一下本系列之前关于线性回归的文章，我们还可以选择使用validation_split参数来自动保留训练数据的随机部分用作验证数据。因此，在这里，我们演示如何显式使用单独的验证数据集。
+
+```python
+training_results = model.fit(X_train, 
+                             y_train, 
+                             epochs=21, 
+                             batch_size=64, 
+                             validation_data=(X_valid, y_valid));
+```
+
+```text
+Epoch 1/21
+782/782 [==============================] - 12s 6ms/step - loss: 0.2833 - accuracy: 0.9173 - val_loss: 0.1755 - val_accuracy: 0.9450
+Epoch 2/21
+782/782 [==============================] - 3s 3ms/step - loss: 0.1203 - accuracy: 0.9634 - val_loss: 0.1276 - val_accuracy: 0.9622
+...
+...
+...
+Epoch 20/21
+782/782 [==============================] - 3s 3ms/step - loss: 0.0033 - accuracy: 0.9989 - val_loss: 0.1924 - val_accuracy: 0.9743
+Epoch 21/21
+782/782 [==============================] - 3s 3ms/step - loss: 0.0034 - accuracy: 0.9988 - val_loss: 0.1595 - val_accuracy: 0.9780
+```
+
+### 04-05 绘制训练结果
+
+下面介绍一个方便的函数，用于绘制训练和验证损失以及训练和验证准确性。它有一个必需的参数，绘制指标列表。
+
+```python
+def plot_results(metrics, title=None, ylabel=None, ylim=None, metric_name=None, color=None):
+    
+    fig, ax = plt.subplots(figsize=(15, 4))
+
+    if not (isinstance(metric_name, list) or isinstance(metric_name, tuple)):
+        metrics = [metrics,]
+        metric_name = [metric_name,]
+        
+    for idx, metric in enumerate(metrics):    
+        ax.plot(metric, color=color[idx])
+    
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.xlim([0, 20])
+    plt.ylim(ylim)
+    # Tailor x-axis tick marks
+    ax.xaxis.set_major_locator(MultipleLocator(5))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    plt.grid(True)
+    plt.legend(metric_name)   
+    plt.show()
+    plt.close()
+```
+
+可以从 fit 方法返回的历史对象中访问损失和准确性指标。我们使用预定义的字典键访问指标，如下所示。
+
+```python
+# Retrieve training results.
+train_loss = training_results.history["loss"]
+train_acc  = training_results.history["accuracy"]
+valid_loss = training_results.history["val_loss"]
+valid_acc  = training_results.history["val_accuracy"]
+
+plot_results(
+    [train_loss, valid_loss],
+    ylabel="Loss",
+    ylim=[0.0, 0.5],
+    metric_name=["Training Loss", "Validation Loss"],
+    color=["g", "b"],
+)
+
+plot_results(
+    [train_acc, valid_acc],
+    ylabel="Accuracy",
+    ylim=[0.9, 1.0],
+    metric_name=["Training Accuracy", "Validation Accuracy"],
+    color=["g", "b"],
+)
+```
+
+ ![](04_MNIST_digit_classification_using_MLP/download4.png)
+
+ ![](04_MNIST_digit_classification_using_MLP/download5.png)
+
+### 04-05 模型评估
+
+#### 04-05-01 对样本测试图像进行预测
+
+我们现在可以预测所有测试图像的结果，如下面的代码所示。在这里，我们调用predict()方法来预测，然后从测试集中选择特定索引并打印出每个类别的预测分数。您可以通过将测试索引设置为各种值来试验下面的代码，并查看最高分数如何与正确值相关联。
+
+```python
+predictions = model.predict(X_test)
+index = 0  # up to 9999
+print("Ground truth for test digit: ", y_test[index])
+print("\n")
+print("Predictions for each class:\n")
+for i in range(10):
+    print("digit:", i, " probability: ", predictions[index][i])
+```
+
+```text
+313/313 [==============================] - 1s 1ms/step
+Ground truth for test digit:  [0. 0. 0. 0. 0. 0. 0. 1. 0. 0.]
+
+
+Predictions for each class:
+
+digit: 0  probability:  9.819607e-24
+digit: 1  probability:  2.4064698e-18
+digit: 2  probability:  1.4520596e-13
+digit: 3  probability:  2.4951994e-13
+digit: 4  probability:  1.5394617e-26
+digit: 5  probability:  9.713211e-23
+digit: 6  probability:  4.6183826e-30
+digit: 7  probability:  1.0
+digit: 8  probability:  1.8647681e-26
+digit: 9  probability:  1.4221963e-17
+```
+
+#### 04-05-01 混淆矩阵
+
+混淆矩阵是一种非常常见的度量，用于总结分类问题的结果。该信息以表格或矩阵的形式呈现，其中一个轴代表每个类别的真实标签，另一个轴代表来自网络的预测标签。表中的条目表示实验中的实例数（有时表示为百分比而不是计数）。在 TensorFlow 中生成混淆矩阵是通过调用函数 tf.math.confusion_matrix()  来完成的，该函数采用两个必需参数，即真实标签列表和关联的预测标签。
+
+```python
+# Generate predictions for the test dataset.
+predictions = model.predict(X_test)
+
+# For each sample image in the test dataset, select the class label with the highest probability.
+predicted_labels = [np.argmax(i) for i in predictions]
+# 313/313 [==============================] - 0s 1ms/step
+```
+
+```python
+# Convert one-hot encoded labels to integers.
+y_test_integer_labels = tf.argmax(y_test, axis=1)
+
+# Generate a confusion matrix for the test dataset.
+cm = tf.math.confusion_matrix(labels=y_test_integer_labels, predictions=predicted_labels)
+
+# Plot the confusion matrix as a heatmap.
+plt.figure(figsize=[15, 8])
+import seaborn as sn
+
+sn.heatmap(cm, annot=True, fmt="d", annot_kws={"size": 14})
+plt.xlabel("Predicted")
+plt.ylabel("Truth")
+plt.show()
+```
+
+ ![](04_MNIST_digit_classification_using_MLP/download6.png)
+
+### 04-06 结论
+
+我们介绍了一种简单的方法，用于对图像数据进行建模，以便在密集连接的网络中分类。在下一个课程，我们将了解专门用于处理图像数据的卷积神经网络（CNN）。以下链接包含几个著名的 CNN 架构的非常好的交互式基于网络的动画，这是开始熟悉它们的好地方。
+
+https://tensorspace.org/html/playground/lenet.html
