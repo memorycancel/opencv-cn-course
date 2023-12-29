@@ -926,3 +926,7 @@ plt.show()
 我们介绍了一种简单的方法，用于对图像数据进行建模，以便在密集连接的网络中分类。在下一个课程，我们将了解专门用于处理图像数据的卷积神经网络（CNN）。以下链接包含几个著名的 CNN 架构的非常好的交互式基于网络的动画，这是开始熟悉它们的好地方。
 
 https://tensorspace.org/html/playground/lenet.html
+
+## 05 CNN 基础知识
+
+ ![](05_CNN_fundamentals/download1.png)
