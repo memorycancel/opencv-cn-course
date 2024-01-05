@@ -39,7 +39,7 @@ Table of Contents
 
  ![download2.png](01_getting_started_with_neural_networks/download2.png)
 
-彩色图像非常相似，只不过它们的每个像素具有三个分量，分别代表红色、绿色和蓝色的颜色强度。因此，在本例中，256 x 256 彩色图像由 196,608 个数字表示。考虑到这一点，让我们更新我们的图表，以更清楚地反映幕后发生的情况。
+彩色图像非常相似，只不过它们的每个像素具有三个分量，分别代表红色、绿色和蓝色的颜色强度。因此，在本例中，256 x 256 彩色图像由 196,608 (256x256x3)个数字表示。考虑到这一点，让我们更新我们的图表，以更清楚地反映幕后发生的情况。
 
  ![download3.png](01_getting_started_with_neural_networks/download3.png)
 
