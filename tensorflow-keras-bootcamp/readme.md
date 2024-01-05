@@ -47,7 +47,7 @@ Table of Contents
 
  ![](01_getting_started_with_neural_networks/download4.png)
 
-这里要注意的是当设计神经网络时，它们为了接受特定大小和形状的输入而完成的。不同的图像分类网络根据其设计支持的应用程序需要不同大小的输入，这并不罕见。例如，由于与移动设备相关的资源有限，为移动设备设计的网络通常需要较小的输入图像。但这没关系，因为我们需要做的就是预处理图像以符合任何特定网络所需的尺寸和形状。
+这里要注意的是当设计神经网络时，它们为了接受特定大小和形状的输入而完成的。不同的图像分类网络根据其设计支持的应用程序需要不同大小的输入，这并不罕见。例如，由于与移动设备相关的资源有限，为移动设备设计的网络通常需要较小的输入图像。但这没关系，因为我们需要做的就是**预处理图像**以符合任何特定网络所需的尺寸和形状。~~或者为不同的设备做不同的模型。~~
 
  ![](01_getting_started_with_neural_networks/download5.png)
 
@@ -929,9 +929,11 @@ https://tensorspace.org/html/playground/lenet.html
 
 ## 05 CNN 基础知识
 
- ![](05_CNN_fundamentals/download1.png)
+
 
 在本单元中，我们将在图像分类问题的背景下学习卷积神经网络（CNN）。我们首先介绍 CNN  的基本结构，然后在研究常用的各种层类型时深入研究详细操作。出于说明目的，下图显示了著名的 CNN（VGG-16）的网络架构。该图显示了  CNN 的一般结构，通常包括一系列卷积块，后面跟着许多全连接层。卷积块从输入图像中提取有意义的特征，通过全连接层进行分类任务。
+
+ ![](05_CNN_fundamentals/download1.png)
 
 ### 05-00 目录
 
@@ -943,7 +945,7 @@ https://tensorspace.org/html/playground/lenet.html
 
 ### 05-01 动机WHY CNN
 
-在上一个图像分类单元中，我们使用密集连接的多层感知器（MLP）网络对手写数字进行分类。然而，使用全连接MLP网络处理图像的一个问题是图像数据通常相当大，这导致可训练参数的数量大幅增加。由于多种原因，这可能会导致训练此类网络变得困难。
+在上一个图像分类单元中，我们使用密集连接的多层感知器（MLP）网络对手写数字进行分类。然而，使用全连接MLP网络处理图像的一个问题是**图像数据通常相当大**，这导致可训练参数的数量大幅增加。由于多种原因，这可能会导致训练此类网络变得困难。
 
 #### 05-01-01 MLP 不是平移不变的
 
@@ -959,7 +961,7 @@ https://tensorspace.org/html/playground/lenet.html
 
 #### 05-01-03 so！卷积神经网络 (CNN)
 
-幸运的是，有更好的方法来处理图像数据。卷积神经网络 (CNN)  的开发是为了更有效和高效地处理图像数据。这主要是由于使用了卷积运算来从图像中提取特征。这是卷积层的一个关键特征，称为参数共享，其中相同的权重用于处理输入图像的不同部分。这使我们能够检测当内核在图像上移动时平移不变的特征模式。与全连接层相比，这种方法通过显着减少可训练参数的总数来提高模型效率。
+幸运的是，有更好的方法来处理图像数据。卷积神经网络 (CNN)  的开发是为了更有效和高效地处理图像数据。这主要是由于使用了卷积运算来从图像中提取特征。这是卷积层的一个关键特征，称为**参数共享**，其中相同的权重用于处理输入图像的不同部分。这使我们能够检测当内核在图像上移动时平移不变的特征模式。与全连接层相比，这种方法通过显着减少可训练参数的总数来提高模型效率。
 
 ---
 
@@ -969,7 +971,7 @@ https://tensorspace.org/html/playground/lenet.html
 
 #### 05-02-01 VGG-16 CNN 架构
 
-在较高层面上，CNN 架构包含一个上游特征提取器，后面跟着一个下游分类器。特征提取部分有时被称为网络的“主干”或“主体”。分类器有时被称为网络的“头”。
+在较高层面上，CNN 架构包含一个**上游特征提取器**，后面跟着一个**下游分类器**。特征提取部分有时被称为网络的“主干”或“主体”。分类器有时被称为网络的“头”。
 
 在本节中，我们将介绍构成两个网络组件基础的所有层类型。为了方便讨论，我们将参考VGG-16 CNN架构，如下图所示。该模型以五个卷积块开始，构成模型的特征提取部分。卷积块是一个通用术语，用于描述 CNN  中的层序列，这些层经常在特征提取器中重复使用。特征提取器后面是分类器，它将提取的特征转换为最终输出层中的类预测。 VGG-16 在  ImageNet 数据集上进行训练，该数据集包含 1,000  个类。因此，输出层包含1000个神经元，其值代表输入图像对应于每个类别的概率。因此，概率最高的输出是预测的类别。
 
@@ -979,15 +981,15 @@ https://tensorspace.org/html/playground/lenet.html
 
 ### 05-03 卷积块和池化层
 
-下图是直观地描述网络各层的另一种方式。对于 VGG-16，有五个卷积块（Conv-1 到  Conv-5）。卷积块内的特定层可能因架构而异。然而，卷积块通常包含一个或多个 2D  卷积层，后面跟着一个池化层。有时也会合并其他层，但为了简单起见，我们将重点关注这两种层类型。请注意，我们已明确指定网络的最后一层为  SoftMax。该层将 softmax 函数应用于网络中最后一个全连接层 (FC-8) 的输出。它将网络的原始输出值转换为 [0,1]  范围内的标准化值，我们可以将其解释为每个类别的概率得分。
+下图是直观地描述网络各层的另一种方式。对于 VGG-16，有五个卷积块（Conv-1 到  Conv-5）。卷积块内的特定层可能因架构而异。然而，卷积块通常包含一个或多个 2D  卷积层，后面跟着一个池化层。有时也会合并其他层，但为了简单起见，我们将重点关注这两种层类型。**请注意，我们已明确指定网络的最后一层为  SoftMax。该层将 softmax 函数应用于网络中最后一个全连接层 (FC-8) 的输出。它将网络的原始输出值转换为 [0,1]  范围内的标准化值，我们可以将其解释为每个类别的概率得分。**
 
  ![](05_CNN_fundamentals/download5.png)
 
 #### 05-03-01 卷积层
 
-卷积层可以被认为是 CNN 的“眼睛”。卷积层中的神经元寻找特定特征。在最基本的层面上，卷积层的输入是一个二维数组，它可以是网络的输入图像，也可以是网络中前一层的输出。第一个卷积层的输入是输入图像。输入图像通常是灰度图像（单通道）或彩色图像（3 通道）。
+**卷积层可以被认为是 CNN 的“眼睛”。**卷积层中的神经元寻找特定特征。在最基本的层面上，卷积层的输入是一个二维数组，它可以是网络的输入图像，也可以是网络中前一层的输出。第一个卷积层的输入是输入图像。输入图像通常是灰度图像（单通道）或彩色图像（3 通道）。
 
-对于 VGG-16，输入是形状为 (224x224x3) 的彩色图像。在这里，我们描述了卷积层的高级视图。卷积层使用过滤器来处理输入数据。滤波器在输入上移动，并在每个滤波器位置执行卷积运算，产生一个数字。然后将该值传递给激活函数，激活函数的输出将填充输出中的相应条目，也称为激活映射 (224x224x1)。您可以将激活图视为包含通过卷积过程输入的特征的摘要。
+对于 VGG-16，输入是形状为 (224x224x3) 的彩色图像。在这里，我们描述了卷积层的高级视图。卷积层使用过滤器来处理输入数据。滤波器在输入上移动，并在每个滤波器位置执行卷积运算，产生一个数字。然后将该值传递给激活函数，激活函数的输出将填充输出中的相应条目，也称为激活映射 (224x224x1)。您可以将**激活图视为包含通过卷积过程输入的特征的摘要。**
 
  ![](05_CNN_fundamentals/download6.png)
 
@@ -1130,3 +1132,701 @@ CNN 架构中的全连接（密集）层将特征转换为类别概率。在 VGG
 注意：步幅和填充 Stride and Padding
 
 在本单元中，我们没有讨论与卷积层中的步幅和填充选项相关的细节。这些参数可以影响数据流经网络时的空间形状。在许多架构中，这些选项被配置为使得激活图具有与层的输入大小相同的空间大小。但是，您应该意识到步幅和填充选项可能会影响数据的空间大小。 Github 上有关卷积网络的页面是一个很好的资源，涵盖了与卷积运算相关的许多细节，特别是步幅和填充的效果。
+
+
+
+## 06 使用 CNN 进行 CIFAR-10 分类
+
+<iframe width="899" height="506" src="https://www.youtube.com/embed/nYFybn7GXp8" title="Mastering Deep Learning: Implementing a Convolutional Neural Network from Scratch with Keras" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 在 TensorFlow 和 Keras 中实现 CNN
+
+在本笔记本中，我们将学习如何使用 Keras 从头开始实现卷积神经网络 (CNN)。在这里，我们展示了一个与 VGG-16  结构类似但层数更少的 CNN 架构。我们将学习如何对该架构进行建模并在名为 CIFAR-10  的小型数据集上对其进行训练。我们还将以此为契机引入一种称为 Dropout 的新图层类型，该图层类型通常在模型中用于减轻过度拟合的影响。
+
+![](06_CIFAR_10_classification_using_CNN/download1.png)
+
+### 06-00 目录
+
+1. 加载CIFAR-10数据集
+2. 数据集预处理
+3. 数据集和训练配置参数
+4. Keras 中的 CNN 模型实现
+5. 将 Dropout 添加到模型中
+6. 保存和加载模型
+7. 模型评估
+8. 结论
+
+```py
+import os
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
+
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter)
+from dataclasses import dataclass
+
+SEED_VALUE = 42
+
+# Fix seed to make training deterministic.
+random.seed(SEED_VALUE)
+np.random.seed(SEED_VALUE)
+tf.random.set_seed(SEED_VALUE)
+```
+
+### 06-01 加载CIFAR-10数据集
+
+CIFAR-10 数据集由 10 个类别的 60,000 张彩色图像组成，每个类别有 6,000 张图像。有 50,000 张训练图像和 10,000 张测试图像。下面显示了几个示例图像以及类名称。
+
+![](06_CIFAR_10_classification_using_CNN/download2.png)
+
+CIFAR-10 数据集包含在 TensorFlow 中，因此我们可以使用 load_data() 函数加载数据集（如下面的代码单元所示），并确认样本数量和数据的形状。
+
+```python
+(X_train, y_train), (X_test, y_test) = cifar10.load_data()
+
+print(X_train.shape)
+print(X_test.shape)
+
+# (50000, 32, 32, 3)
+# (10000, 32, 32, 3)
+```
+
+#### 06-01-01 显示数据集中的示例图像
+
+检查数据集中的一些图像总是一个好主意，如下所示。请记住，CIFAR-10 中的图像非常小，只有 32x32 像素，因此虽然它们没有很多细节，但这些图像中仍然有足够的信息来支持图像分类任务。
+
+```python
+plt.figure(figsize=(18, 8))
+
+num_rows = 4
+num_cols = 8
+
+# plot each of the images in the batch and the associated ground truth labels.
+for i in range(num_rows * num_cols):
+    ax = plt.subplot(num_rows, num_cols, i + 1)
+    plt.imshow(X_train[i, :, :])
+    plt.axis("off")
+```
+
+![](06_CIFAR_10_classification_using_CNN/download3.png)
+
+### 06-02 数据集预处理
+
+在这里，我们将图像数据标准化为范围 [0,1]。这在处理图像数据时很常见，这有助于更有效地训练模型。我们还将整数标签转换为 one-hot 编码标签，如之前视频中所述。
+
+```python
+# Normalize images to the range [0, 1].
+X_train = X_train.astype("float32") / 255
+X_test  = X_test.astype("float32")  / 255
+
+# Change the labels from integer to categorical data.
+print('Original (integer) label for the first training sample: ', y_train[0])
+
+# Convert labels to one-hot encoding.
+y_train = to_categorical(y_train)
+y_test  = to_categorical(y_test)
+
+print('After conversion to categorical one-hot encoded labels: ', y_train[0])
+# Original (integer) label for the first training sample:  [6]
+# After conversion to categorical one-hot encoded labels:  [0. 0. 0. 0. 0. 0. 1. 0. 0. 0.]
+```
+
+### 06-03 数据集和训练配置参数
+
+在描述模型实现和训练之前，我们将通过使用 python 中的 dataclasses 模块创建简单的 DatasetConfig 和  TrainingConfig  类来组织多个数据和训练配置参数，从而在训练过程中应用更多的结构。这允许我们为配置参数创建数据结构，如下所示。这样做的好处是我们可以在一个地方进行任何所需的更改。
+
+```python
+@dataclass(frozen=True)
+class DatasetConfig:
+    NUM_CLASSES:  int = 10
+    IMG_HEIGHT:   int = 32
+    IMG_WIDTH:    int = 32
+    NUM_CHANNELS: int = 3
+    
+@dataclass(frozen=True)
+class TrainingConfig:
+    EPOCHS:        int = 31
+    BATCH_SIZE:    int = 256
+    LEARNING_RATE: float = 0.001 
+```
+
+### 06-04 Keras 中的 CNN 模型实现
+
+在本节中，我们将在 Keras 中定义一个简单的 CNN 模型，并在 CIRFAR-10 数据集上对其进行训练。回想一下之前的笔记本，在 Keras 中定义和训练模型所需的以下步骤。
+
+1. 使用 Keras 中的预定义层构建/定义网络模型
+2. 使用 model.compile() 编译模型
+3. 使用 model.fit() 训练模型
+
+#### 06-04-01 模型结构
+
+在我们讨论编码细节之前，让我们首先看一下我们提出的模型的总体结构。请注意，该模型具有与 VGG-16  类似的结构，但层数更少，输入图像尺寸小得多，因此可训练参数也少得多。该模型包含三个卷积块，后跟一个全连接层和一个输出层。作为参考，我们在架构中的关键点包含了通道数量。我们还指出了每个卷积块末尾激活图的空间大小。这是一个很好的视觉效果，可以在学习下面的代码时参考。
+
+![](06_CIFAR_10_classification_using_CNN/download4.png)
+
+为了方便起见，我们将在函数中定义模型。请注意，该函数有一个可选参数：模型的输入形状。我们首先通过调用equential()方法来实例化模型。这允许我们通过一次添加一层来顺序构建模型。请注意，我们定义了三个卷积块，并且它们的结构非常相似。
+
+#### 06-04-02 定义卷积块
+
+让我们从第一个卷积块中的第一个卷积层开始。为了在 Keras 中定义卷积层，我们调用 Conv2D()  函数，该函数接受多个输入参数。首先，我们将图层定义为具有 32 个过滤器。每个过滤器的内核大小为 3（解释为 3x3）。我们使用名为 same  的填充选项，它将填充输入张量，以便卷积运算的输出具有与输入相同的空间大小。这不是必需的，但很常用。如果您没有显式指定此填充选项，则默认行为没有填充，因此，卷积层输出的空间大小将略小于输入大小。我们在网络中除输出层之外的所有层中使用 ReLU 激活函数。
+
+对于第一个卷积层，我们需要指定输入的形状，但对于所有后续层，这不是必需的，因为输入的形状是根据先前层的输出的形状自动计算的，所以我们有两个卷积层，每个层有 32 个滤波器，然后我们使用窗口大小为 (2x2) 的最大池化层，因此第一个卷积块的输出形状为 (16x16  x32)。接下来，我们有第二个卷积块，它与第一个卷积块几乎相同，不同之处在于每个卷积层中有 64 个滤波器，而不是 32  个，最后，第三个卷积块是第二个卷积块的精确副本。
+
+![](06_CIFAR_10_classification_using_CNN/download5.png)
+
+注意：每个卷积层中的滤波器数量是您需要进行试验的。过滤器数量越多，模型的学习能力就越大，但这也需要与可用于训练模型的数据量进行平衡。添加太多过滤器（或层）可能会导致过度拟合，这是训练模型时遇到的最常见问题之一。
+
+```python
+def cnn_model(input_shape=(32, 32, 3)):
+    
+    model = Sequential()
+    
+    #------------------------------------
+    # Conv Block 1: 32 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu', input_shape=input_shape))
+    model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    #------------------------------------
+    # Conv Block 2: 64 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    #------------------------------------
+    # Conv Block 3: 64 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    
+    #------------------------------------
+    # Flatten the convolutional features.
+    #------------------------------------
+    model.add(Flatten())
+    model.add(Dense(512, activation='relu'))
+    model.add(Dense(10, activation='softmax'))
+    
+    return model
+```
+
+#### 06-04-03 定义分类器
+
+在为分类器定义全连接层之前，我们需要首先展平最后一个卷积层（其空间形状为 4x4，有 64 个通道）生成的二维激活图。这是通过调用 flatten() 函数创建长度为 1024  的一维向量来完成的。然后，我们添加一个包含 512 个神经元的密集连接层和一个包含 10 个神经元的全连接输出层，因为我们的数据集中有 10  个类。为了避免任何混淆，我们还提供了全连接层的详细图表。
+
+![](06_CIFAR_10_classification_using_CNN/download6.png)
+
+#### 06-04-04 创建模型
+
+现在，我们可以通过调用上面的函数来创建模型的实例，并使用summary()方法将模型摘要显示到控制台。
+
+```python
+# Create the model.
+model = cnn_model()
+model.summary()
+```
+
+输出
+
+```text
+Model: "sequential"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ conv2d (Conv2D)             (None, 32, 32, 32)        896       
+                                                                 
+ conv2d_1 (Conv2D)           (None, 32, 32, 32)        9248      
+                                                                 
+ max_pooling2d (MaxPooling2D  (None, 16, 16, 32)       0         
+ )                                                               
+                                                                 
+ conv2d_2 (Conv2D)           (None, 16, 16, 64)        18496     
+                                                                 
+ conv2d_3 (Conv2D)           (None, 16, 16, 64)        36928     
+                                                                 
+ max_pooling2d_1 (MaxPooling  (None, 8, 8, 64)         0         
+ 2D)                                                             
+                                                                 
+ conv2d_4 (Conv2D)           (None, 8, 8, 64)          36928     
+                                                                 
+ conv2d_5 (Conv2D)           (None, 8, 8, 64)          36928     
+                                                                 
+ max_pooling2d_2 (MaxPooling  (None, 4, 4, 64)         0         
+ 2D)                                                             
+                                                                 
+ flatten (Flatten)           (None, 1024)              0         
+                                                                 
+ dense (Dense)               (None, 512)               524800    
+                                                                 
+ dense_1 (Dense)             (None, 10)                5130      
+                                                                 
+=================================================================
+Total params: 669,354
+Trainable params: 669,354
+Non-trainable params: 0
+```
+
+#### 06-04-05 编译模型
+
+下一步是编译模型，其中我们指定优化器类型和损失函数以及我们希望在训练期间记录的任何其他指标。这里我们指定 RMSProp 作为梯度下降的优化器类型，并使用交叉熵损失函数，它是分类问题的标准损失函数。我们特别使用  categorical_crossentropy，因为我们的标签是 one-hot  编码的。最后，我们将准确性指定为训练期间记录的附加指标。损失函数的值总是默认记录的，但是如果你想要准确性，你需要指定它。
+
+```python
+model.compile(
+    optimizer="rmsprop",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"],
+)
+```
+
+#### 06-04-06 训练模型
+
+由于数据集不包含验证数据集，并且我们之前没有拆分训练数据集来创建验证数据集，因此我们将使用下面的validation_split参数，以便自动保留30%的训练数据集用于验证。此方法保留数据集的最后 30% 用于训练。这是一种非常方便的方法，但如果训练数据集有任何特定的顺序（例如按类排序），您将需要在分割之前采取措施随机化顺序。
+
+```python
+history = model.fit(X_train,
+                    y_train,
+                    batch_size=TrainingConfig.BATCH_SIZE, 
+                    epochs=TrainingConfig.EPOCHS, 
+                    verbose=1, 
+                    validation_split=.3,
+                   )
+```
+
+输出
+
+```text
+Epoch 1/31
+
+2023-01-28 15:10:11.445741: W tensorflow/core/platform/profile_utils/cpu_utils.cc:128] Failed to get CPU frequency: 0 Hz
+2023-01-28 15:10:11.849023: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+137/137 [==============================] - ETA: 0s - loss: 1.9926 - accuracy: 0.2704
+
+2023-01-28 15:10:15.583877: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+137/137 [==============================] - 5s 29ms/step - loss: 1.9926 - accuracy: 0.2704 - val_loss: 1.7339 - val_accuracy: 0.3640
+Epoch 2/31
+...
+...
+...
+ss: 2.0920 - val_accuracy: 0.7137
+Epoch 30/31
+137/137 [==============================] - 3s 25ms/step - loss: 0.0543 - accuracy: 0.9837 - val_loss: 2.1936 - val_accuracy: 0.7253
+Epoch 31/31
+137/137 [==============================] - 3s 25ms/step - loss: 0.0520 - accuracy: 0.9834 - val_loss: 2.1732 - val_accuracy: 0.7227
+```
+
+#### 06-04-07 绘制训练结果
+
+下面的函数是一个方便的函数，用于绘制训练和验证损失以及训练和验证准确性。它有一个必需的参数，它是要绘制的指标列表。
+
+```python
+def plot_results(metrics, title=None, ylabel=None, ylim=None, metric_name=None, color=None):
+    fig, ax = plt.subplots(figsize=(15, 4))
+
+    if not (isinstance(metric_name, list) or isinstance(metric_name, tuple)):
+        metrics = [metrics,]
+        metric_name = [metric_name,]
+
+    for idx, metric in enumerate(metrics):
+        ax.plot(metric, color=color[idx])
+
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.xlim([0, TrainingConfig.EPOCHS - 1])
+    plt.ylim(ylim)
+    # Tailor x-axis tick marks
+    ax.xaxis.set_major_locator(MultipleLocator(5))
+    ax.xaxis.set_major_formatter(FormatStrFormatter("%d"))
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    plt.grid(True)
+    plt.legend(metric_name)
+    plt.show()
+    plt.close()
+```
+
+可以从 fit 方法返回的历史对象中访问损失和准确性指标。我们使用预定义的字典键访问指标，如下所示。
+
+```python
+# Retrieve training results.
+train_loss = history.history["loss"]
+train_acc  = history.history["accuracy"]
+valid_loss = history.history["val_loss"]
+valid_acc  = history.history["val_accuracy"]
+
+plot_results(
+    [train_loss, valid_loss],
+    ylabel="Loss",
+    ylim=[0.0, 5.0],
+    metric_name=["Training Loss", "Validation Loss"],
+    color=["g", "b"],
+)
+
+plot_results(
+    [train_acc, valid_acc],
+    ylabel="Accuracy",
+    ylim=[0.0, 1.0],
+    metric_name=["Training Accuracy", "Validation Accuracy"],
+    color=["g", "b"],
+)
+```
+
+ ![](06_CIFAR_10_classification_using_CNN/download7.png)
+
+ ![](06_CIFAR_10_classification_using_CNN/download8.png)
+
+我们的基线模型的结果表明该模型过度拟合。请注意，经过大约十个时期的训练后，验证损失会增加，而训练损失会继续下降。这意味着网络可以很好地学习如何对训练数据进行建模，但不能很好地推广到未见过的测试数据。准确度图显示了类似的趋势，其中验证准确度在大约 10 个 epoch 后趋于平稳，而随着训练的进行，训练准确度继续接近  100%。这是训练神经网络时的常见问题，发生的原因有多种。原因之一是该模型可以适应训练数据集的细微差别，特别是当训练数据集较小时。
+
+### 06-05 将 Dropout 添加到模型中
+
+为了帮助缓解这个问题，我们可以采用一种或多种正则化策略来帮助模型更好地泛化**regularization**。正则化技术有助于限制模型的灵活性，使其不会过度拟合训练数据。一种方法称为 **Dropout**，它内置于 Keras 中。 Dropout 在 Keras  中作为一种特殊的层类型实现，在训练过程中随机丢弃一定百分比的神经元。当在卷积层中使用dropout时，它通常在最大池化层之后使用，具有消除特征图中一定比例的神经元的效果。当在全连接层之后使用时，全连接层中一定比例的神经元将被丢弃。
+
+ ![](06_CIFAR_10_classification_using_CNN/download9.png)
+
+在下图中，我们在每个卷积块的末尾以及分类器中的密集层之后添加了一个 dropout 层。 Dropout 函数的输入参数是在训练过程中从前一层（随机）丢弃的神经元的比例。
+
+ ![](06_CIFAR_10_classification_using_CNN/download10.png)
+
+#### 06-05-01 定义模型（带 Dropout）
+
+```python
+def cnn_model_dropout(input_shape=(32, 32, 3)):
+    
+    model = Sequential()
+    
+    #------------------------------------
+    # Conv Block 1: 32 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu', input_shape=input_shape))
+    model.add(Conv2D(filters=32, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    #------------------------------------
+    # Conv Block 2: 64 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    #------------------------------------
+    # Conv Block 3: 64 Filters, MaxPool.
+    #------------------------------------
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    
+    #------------------------------------
+    # Flatten the convolutional features.
+    #------------------------------------
+    model.add(Flatten())
+    model.add(Dense(512, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(10, activation='softmax'))
+    
+    return model
+```
+
+#### 06-05-02 创建模型（带 Dropout）
+
+```python
+# Create the model.
+model_dropout = cnn_model_dropout()
+model_dropout.summary()
+```
+
+输出
+
+```text
+Model: "sequential_1"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ conv2d_6 (Conv2D)           (None, 32, 32, 32)        896       
+                                                                 
+ conv2d_7 (Conv2D)           (None, 32, 32, 32)        9248      
+                                                                 
+ max_pooling2d_3 (MaxPooling  (None, 16, 16, 32)       0         
+ 2D)                                                             
+                                                                 
+ dropout (Dropout)           (None, 16, 16, 32)        0         
+                                                                 
+ conv2d_8 (Conv2D)           (None, 16, 16, 64)        18496     
+                                                                 
+ conv2d_9 (Conv2D)           (None, 16, 16, 64)        36928     
+                                                                 
+ max_pooling2d_4 (MaxPooling  (None, 8, 8, 64)         0         
+ 2D)                                                             
+                                                                 
+ dropout_1 (Dropout)         (None, 8, 8, 64)          0         
+                                                                 
+ conv2d_10 (Conv2D)          (None, 8, 8, 64)          36928     
+                                                                 
+ conv2d_11 (Conv2D)          (None, 8, 8, 64)          36928     
+                                                                 
+ max_pooling2d_5 (MaxPooling  (None, 4, 4, 64)         0         
+ 2D)                                                             
+                                                                 
+ dropout_2 (Dropout)         (None, 4, 4, 64)          0         
+                                                                 
+ flatten_1 (Flatten)         (None, 1024)              0         
+                                                                 
+ dense_2 (Dense)             (None, 512)               524800    
+                                                                 
+ dropout_3 (Dropout)         (None, 512)               0         
+                                                                 
+ dense_3 (Dense)             (None, 10)                5130      
+                                                                 
+=================================================================
+Total params: 669,354
+Trainable params: 669,354
+Non-trainable params: 0
+```
+
+#### 06-05-03 编译模型（带 Dropout）
+
+```python
+model_dropout.compile(
+    optimizer="rmsprop",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"],
+)
+```
+
+#### 06-05-04 训练模型（使用 Dropout）
+
+```python
+history = model_dropout.fit(X_train,
+                            y_train,
+                            batch_size=TrainingConfig.BATCH_SIZE, 
+                            epochs=TrainingConfig.EPOCHS, 
+                            verbose=1, 
+                            validation_split=.3,
+                           )
+```
+
+输出
+
+```text
+Epoch 1/31
+
+2023-01-28 15:12:00.834189: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+137/137 [==============================] - ETA: 0s - loss: 2.1302 - accuracy: 0.2181
+
+2023-01-28 15:12:04.886589: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+137/137 [==============================] - 5s 32ms/step - loss: 2.1302 - accuracy: 0.2181 - val_loss: 1.9788 - val_accuracy: 0.2755
+Epoch 2/31
+137/137 [==============================] - 4s 28ms/step - loss: 1.7749 - accuracy: 0.3647 - val_loss: 1.8633 - val_accuracy: 0.3332
+Epoch 3/31
+...
+...
+...
+Epoch 29/31
+137/137 [==============================] - 4s 28ms/step - loss: 0.4626 - accuracy: 0.8359 - val_loss: 0.6721 - val_accuracy: 0.7832
+Epoch 30/31
+137/137 [==============================] - 4s 28ms/step - loss: 0.4584 - accuracy: 0.8380 - val_loss: 0.6638 - val_accuracy: 0.7847
+Epoch 31/31
+137/137 [==============================] - 4s 27ms/step - loss: 0.4427 - accuracy: 0.8449 - val_loss: 0.6598 - val_accuracy: 0.7863
+```
+
+#### 06-05-05 绘制训练结果（使用 Dropout）
+
+```python
+# Retrieve training results.
+train_loss = history.history["loss"]
+train_acc  = history.history["accuracy"]
+valid_loss = history.history["val_loss"]
+valid_acc  = history.history["val_accuracy"]
+
+plot_results(
+    [train_loss, valid_loss],
+    ylabel="Loss",
+    ylim=[0.0, 5.0],
+    metric_name=["Training Loss", "Validation Loss"],
+    color=["g", "b"],
+)
+
+plot_results(
+    [train_acc, valid_acc],
+    ylabel="Accuracy",
+    ylim=[0.0, 1.0],
+    metric_name=["Training Accuracy", "Validation Accuracy"],
+    color=["g", "b"],
+)
+```
+
+ ![](06_CIFAR_10_classification_using_CNN/download11.png)
+
+ ![](06_CIFAR_10_classification_using_CNN/download12.png)
+
+在上图中，训练曲线与验证曲线非常接近。另外，请注意，与不包含 dropout 的基线模型相比，我们实现了更高的验证准确性。两组训练图如下所示以供比较。
+
+ ![](06_CIFAR_10_classification_using_CNN/download13.png)
+
+### 06-06 保存和加载模型
+
+保存和加载模型非常方便。这使您能够开发和训练模型，将其保存到文件系统，然后在将来的某个时间加载它以供使用。本节将介绍保存和加载模型的基本操作。
+
+#### 06-06-01 保存模型
+
+您可以使用 save()  方法轻松保存模型，该方法会将模型以“SavedModel”格式保存到文件系统中。此方法在文件系统上创建一个文件夹。在此文件夹中，模型架构和训练配置（包括优化器、损失和指标）存储在 saving_model.pb 中。 Variables/  文件夹包含一个标准训练检查点文件，其中包括模型的权重。我们将在后面的模块中深入研究这些细节。现在，让我们保存经过训练的模型，然后我们将使用不同的名称将其加载到下一个代码单元中，并继续在笔记本的其余部分中使用它。
+
+```python
+# Using the save() method, the model will be saved to the file system in the 'SavedModel' format.
+model_dropout.save("model_dropout")
+```
+
+```text
+WARNING:absl:Found untraced functions such as _jit_compiled_convolution_op, _jit_compiled_convolution_op, _jit_compiled_convolution_op, _jit_compiled_convolution_op, _jit_compiled_convolution_op while saving (showing 5 of 6). These functions will not be directly callable after loading.
+
+INFO:tensorflow:Assets written to: model_dropout/assets
+
+INFO:tensorflow:Assets written to: model_dropout/assets
+```
+
+#### 06-06-02 加载模型
+
+```python
+from tensorflow.keras import models
+reloaded_model_dropout = models.load_model('model_dropout')
+```
+
+### 06-07 模型评估
+
+我们可以采取一些措施来进一步评估训练后的模型。我们可以在测试数据集上计算模型的准确性。我们可以直观地检查数据集中图像子集的结果，并绘制数据集的混淆矩阵。让我们看一下这三个例子。
+
+#### 06-07-01 在测试数据集上评估模型
+
+可以使用一行代码来计算模型在测试数据集上的准确性，如下所示。在这里，我们使用模型调用评估（）方法，传入测试数据集的图像和标签。该方法为我们返回测试数据集的损失函数值及其准确性。所以在这里我们看到文本数据集的准确率为 71.7%。
+
+```python
+test_loss, test_acc = reloaded_model_dropout.evaluate(X_test, y_test)
+print(f"Test accuracy: {test_acc*100:.3f}")
+```
+
+```text
+10/313 [..............................] - ETA: 3s - loss: 0.6138 - accuracy: 0.8125
+
+2023-01-28 15:14:01.538697: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+313/313 [==============================] - 3s 9ms/step - loss: 0.6736 - accuracy: 0.7833
+Test accuracy: 78.330
+```
+
+#### 06-07-02 对样本测试图像进行预测
+
+在这里，我们创建了一个便利函数，它允许我们在数据集中的图像子集上评估模型并直观地显示结果。
+
+```python
+def evaluate_model(dataset, model):
+    class_names = [
+        "airplane",
+        "automobile",
+        "bird",
+        "cat",
+        "deer",
+        "dog",
+        "frog",
+        "horse",
+        "ship",
+        "truck",
+    ]
+    num_rows = 3
+    num_cols = 6
+
+    # Retrieve a number of images from the dataset.
+    data_batch = dataset[0 : num_rows * num_cols]
+
+    # Get predictions from model.
+    predictions = model.predict(data_batch)
+
+    plt.figure(figsize=(20, 8))
+    num_matches = 0
+
+    for idx in range(num_rows * num_cols):
+        ax = plt.subplot(num_rows, num_cols, idx + 1)
+        plt.axis("off")
+        plt.imshow(data_batch[idx])
+
+        pred_idx = tf.argmax(predictions[idx]).numpy()
+        truth_idx = np.nonzero(y_test[idx])
+
+        title = str(class_names[truth_idx[0][0]]) + " : " + str(class_names[pred_idx])
+        title_obj = plt.title(title, fontdict={"fontsize": 13})
+
+        if pred_idx == truth_idx:
+            num_matches += 1
+            plt.setp(title_obj, color="g")
+        else:
+            plt.setp(title_obj, color="r")
+
+        acc = num_matches / (idx + 1)
+    print("Prediction accuracy: ", int(100 * acc) / 100)
+
+    return
+
+evaluate_model(X_test, reloaded_model_dropout)
+```
+
+```text
+1/1 [==============================] - 0s 100ms/step
+
+2023-01-28 15:14:04.581217: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+Prediction accuracy:  0.88
+```
+
+ ![](06_CIFAR_10_classification_using_CNN/download14.png)
+
+#### 06-07-03 混淆矩阵
+
+混淆矩阵是一种非常常见的度量，用于总结分类问题的结果。该信息以表格或矩阵的形式呈现，其中一个轴代表每个类别的真实标签，另一个轴代表来自网络的预测标签。表中的条目表示实验中的实例数（有时表示为百分比而不是计数）。在 TensorFlow 中生成混淆矩阵是通过调用函数 tf.math.confusion_matrix()  来完成的，该函数需要两个必需参数：真实标签列表和关联的预测标签。
+
+```python
+# Generate predictions for the test dataset.
+predictions = reloaded_model_dropout.predict(X_test)
+
+# For each sample image in the test dataset, select the class label with the highest probability.
+predicted_labels = [np.argmax(i) for i in predictions]
+# 313/313 [==============================] - 1s 4ms/step
+
+
+# Convert one-hot encoded labels to integers.
+y_test_integer_labels = tf.argmax(y_test, axis=1)
+
+# Generate a confusion matrix for the test dataset.
+cm = tf.math.confusion_matrix(labels=y_test_integer_labels, predictions=predicted_labels)
+
+# Plot the confusion matrix as a heatmap.
+plt.figure(figsize=[12, 6])
+import seaborn as sn
+
+sn.heatmap(cm, annot=True, fmt="d", annot_kws={"size": 12})
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Truth")
+plt.show()
+```
+
+ ![](06_CIFAR_10_classification_using_CNN/download15.png)
+
+混淆矩阵是模型在类级别性能的内容丰富的表示。它可以提供非常丰富的信息，可以帮助您更好地了解模型在哪些方面表现良好以及在哪些方面可能比较困难。例如，有几件事立即脱颖而出。十个类别中的两个类别比其他类别更容易被错误分类：狗和猫。更具体地说，在很大一部分时间里，模型会将这两个类相互混淆。让我们仔细看看。猫的真实标签为 3，狗的真实标签为 5。请注意，当输入图像是猫（索引 3）时，它通常最容易被错误分类为狗，有 176 个错误分类样本。当输入图像是狗（索引  5）时，错误分类最多的示例是猫，有 117 个样本。
+
+另请注意，最后一行代表卡车，最常与汽车混淆。因此，考虑到所涉及的类的相似性，所有这些观察结果都具有直观意义。
+
+### 06-08 结论
+
+在本笔记本中，我们学习了如何使用  TensorFlow 和 Keras 定义和训练简单的卷积神经网络。我们展示了模型对训练数据的过度拟合，并且我们学习了如何使用 dropout  层来减少过度拟合并提高模型在验证数据集上的性能。我们还介绍了如何在文件系统中保存和加载模型。最后，我们回顾了用于在测试数据集上评估模型的三种技术。
