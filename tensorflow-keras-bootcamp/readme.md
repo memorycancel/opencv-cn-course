@@ -1830,3 +1830,351 @@ plt.show()
 ### 06-08 结论
 
 在本笔记本中，我们学习了如何使用  TensorFlow 和 Keras 定义和训练简单的卷积神经网络。我们展示了模型对训练数据的过度拟合，并且我们学习了如何使用 dropout  层来减少过度拟合并提高模型在验证数据集上的性能。我们还介绍了如何在文件系统中保存和加载模型。最后，我们回顾了用于在测试数据集上评估模型的三种技术。
+
+
+
+## 07 使用预先训练好的 ImageNet 模型进行图像分类
+
+ <iframe width="899" height="506" src="https://www.youtube.com/embed/VIYnV5zXals" title="Mastering Image Classification with Pre-Trained ImageNet Models in TensorFlow &amp; Keras" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### TensorFlow 和 Keras 中预训练的 ImageNet 模型
+
+在下文中，我们将学习如何使用预先训练的模型来执行图像分类。我们已经了解了如何训练一个简单的神经网络来对 CIFAR-10  数据集中的图像进行分类，但这是一项相对简单的任务，因为只有 10 个类别。另一方面，对大量对象类型进行分类将需要包含数百万个参数的更大网络。感谢 ImageNet 项目，Keras 中提供了预训练模型，这些模型经过训练可以检测 1,000  个不同类别的对象。只需几行代码，我们将学习如何使用这些开箱即用的预训练模型来执行图像分类，而无需训练。
+
+ ![](07_image_classification_using_pre_trained_imagenet_models/download1.png)
+
+### 07-00 目录
+
+1. ImageNet 和 ILSVRC
+2. Keras 中的预训练模型
+3. 读取并显示示例图像
+4. 预训练模型设置
+5. 使用预训练模型进行预测
+6. 结论
+
+### 07-01 ImageNet 和 ILSVRC
+
+ImageNet项目是一个大型视觉数据库，专为视觉对象识别软件研究而设计。这个项目的想法是由人工智能研究员李飞飞在 15 年前提出的。 ImageNet 团队于 2009 年首次展示了他们的数据集。
+
+自 2010 年以来，ImageNet  项目每年举办一次软件竞赛，研究团队评估他们的计算机视觉算法是否适用于各种视觉识别任务，例如对象分类和对象定位。训练数据是 ImageNet  的子集，包含属于 1,000 个类别的 120 万张图像。 2012 年，深度学习成为人们关注的焦点，当时 Alex Krizhevsky  和他的团队以 11% 的优势赢得了比赛。 ILSVRC 和 Imagenet 有时可以互换使用。
+
+ImageNet  数据集有多种子集用于不同的环境。 ImageNet 最常用的子集之一是“ImageNet 大规模视觉识别挑战赛 (ILSVRC)  2012-2017 图像分类和定位数据集”。这在研究文献中也被称为 ImageNet-1K 或 ILSVRC2017，反映了涉及 1,000  个类别的原始 ILSVRC 挑战。
+
+### 07-02 Keras 中的预训练模型
+
+ILSVRC 的获奖者非常慷慨地向开源社区发布他们的模型。 Keras 中提供了许多模型，例如  AlexNet、VGGNet、Inception、ResNet、Xception 等等。除了 ILSVRC  获奖者之外，许多研究小组也分享了他们为类似任务训练的模型，例如 MobileNet、SqueezeNet 等。在 ImageNet  上训练的所有模型都是用于将图像分类为 1,000 个类别之一。
+
+Keras 捆绑了许多预先训练的分类模型。从 Keras 2.11 版本开始，有 19 种不同的预训练模型可用，其中一些版本还包含许多变体。型号列表可在此处找到。这里我们将使用以下预训练模型对几个样本测试图像进行预测。
+
+- VGG16
+- ResNet50
+- InceptionV3 
+
+要使用 Keras 中的任何预训练模型，需要执行四个基本步骤：
+
+1. 加载预训练模型
+2. 使用模型中可访问的专用预处理函数 preprocess_input() 对输入图像进行预处理
+3. 调用模型的predict()方法来生成预测
+4. 使用模型中可访问的专用后处理函数decode_predictions() 对预测进行解码
+
+#### 07-02-01 实例化模型
+
+这里我们将使用 ResNet50  模型来描述该方法。这里我们调用内置模型ResNet50()来实例化ResNet50预训练模型。请注意，该函数有几个可选参数，它们为使用模型提供了很大的灵活性。但是，默认设置允许您直接使用开箱即用的模型对 ImageNet 数据集中的 1,000 个类执行图像分类。
+
+```python
+model_resnet50 = tf.keras.applications.resnet50.ResNet50(include_top=True, 
+                                                         weights='imagenet', 
+                                                         input_tensor=None,
+                                                         input_shape=None, 
+                                                         pooling=None, 
+                                                         classes=1000,
+                                                         classifier_activation='softmax',
+                                                        )
+```
+
+#### 07-02-02 预处理输入
+
+当这些模型在 ImageNet  数据集上进行训练时，输入图像以特定方式进行预处理。除了调整图像大小以符合网络的预期大小之外，图像通常以零为中心并进行归一化。使用这些模型时，重要的是要以与处理训练图像相同的方式对输入图像进行预处理。为了方便起见，Keras 中的每个模型都包含一个专用的预处理函数 preprocess_input。这里 x 表示包含图像数据的浮点 numpy.array 或  tf.Tensor。
+
+```python
+tf.keras.applications.resnet50.preprocess_input(x, data_format=None)
+```
+
+#### 07-02-03 调用模型的predict()方法
+
+对输入图像进行预处理后，我们可以将它们传递给模型的 Predict() 方法，如下所示。由于 TensorFlow 和 Keras  批量处理图像数据，因此即使我们一次处理一张图像，我们也需要向图像添加批量维度。举个例子，ResNet50期望彩色图像的形状为[224,224,3]，但我们必须添加批量维度，以便图像批量具有形状：[B,H,W,C]，即使我们打算处理一次一张图像。我们将在下面进一步了解这是如何完成的。
+
+```python
+preds = model_resnet50.predict(image_batch)
+```
+
+Predict() 方法返回的预测将包含 NumPy 数组中所有 1,000 个类的类概率。
+
+#### 07-02-04 解码预测
+
+幸运的是，有一个方便的函数可用于解码模型返回的预测。您可以使用特定于模型的函数 resnet50.decode_predictions 或 imagenet_utils 版本（均如下所示），它将按降序合并前 k 个预测。
+
+```python
+decoded_preds = tf.keras.applications.resnet50.decode_predictions(
+    preds, 
+    top=5
+)
+
+decoded_preds = tf.keras.applications.imagenet_utils.decode_predictions(
+    preds, 
+    top=5
+)
+```
+
+这些函数返回前 k 个（默认 = 5）预测的列表，以及类 ID 和类描述（名称）。这使得解析和报告结果变得容易。
+
+### 07-03 读取并显示示例图像
+
+```python
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import glob as glob
+import os
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+
+    # Downloading zip file using urllib package.
+    urlretrieve(url, save_path)
+
+    try:
+        # Extracting zip file using the zipfile package.
+        with ZipFile(save_path) as z:
+            # Extract ZIP file contents in the same directory.
+            z.extractall(os.path.split(save_path)[0])
+
+        print("Done")
+
+    except Exception as e:
+        print("\nInvalid file.", e)
+        
+
+
+URL = r"https://www.dropbox.com/s/8srx6xdjt9me3do/TF-Keras-Bootcamp-NB07-assets.zip?dl=1"
+
+asset_zip_path = os.path.join(os.getcwd(), "TF-Keras-Bootcamp-NB07-assets.zip")
+
+# Download if assest ZIP does not exists. 
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)   
+
+# Store all the image paths in a list.
+image_paths = sorted(glob.glob("images" + os.sep + "*.png"))
+print(image_paths)
+
+plt.figure(figsize=(18, 6))
+for idx, image_path in enumerate(image_paths):
+    image = plt.imread(image_path)
+    plt.subplot(2,4,idx+1)
+    plt.imshow(image)
+    plt.axis('off')
+
+```
+
+ ![](07_image_classification_using_pre_trained_imagenet_models/download2.png)
+
+### 07-04 预训练模型设置
+
+我们现在准备将模型加载到内存中并创建一个便利函数来实现所需的处理。
+
+#### 07-04-01 加载模型
+
+在这里，我们将每个模型加载到内存中，并显示每个模型的输入形状。
+
+```python
+model_vgg16        = tf.keras.applications.vgg16.VGG16()
+model_resnet50     = tf.keras.applications.resnet50.ResNet50()
+model_inception_v3 = tf.keras.applications.inception_v3.InceptionV3()
+```
+
+```text
+Downloading data from https://storage.googleapis.com/tensorflow/keras-applications/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels.h5
+553467096/553467096 [==============================] - 2s 0us/step
+Downloading data from https://storage.googleapis.com/tensorflow/keras-applications/resnet/resnet50_weights_tf_dim_ordering_tf_kernels.h5
+102967424/102967424 [==============================] - 0s 0us/step
+Downloading data from https://storage.googleapis.com/tensorflow/keras-applications/inception_v3/inception_v3_weights_tf_dim_ordering_tf_kernels.h5
+96112376/96112376 [==============================] - 1s 0us/step
+```
+
+```python
+print(model_vgg16.input_shape)
+print(model_resnet50.input_shape)
+print(model_inception_v3.input_shape)
+```
+
+```text
+(None, 224, 224, 3)
+(None, 224, 224, 3)
+(None, 299, 299, 3)
+```
+
+第一个（未指定）维度是批量大小，其次是空间大小和通道数。当我们使用这些模型处理图像时，我们可以自由指定批次中的图像数量，但每个图像的形状必须符合上面指示的尺寸。
+
+#### 07-04-02 创建用于批处理的便捷函数
+
+由于我们使用 Keras API，因此使用模型所需的代码非常少。为了方便起见，我们将创建一个函数来自动执行处理每个图像所需的处理步骤。
+
+1. 读取图像
+2. 根据模型要求对图像进行所需的预处理
+3. 向图像张量添加批量维度
+4. 调用模型的predict()方法进行预测
+5. 解码预测以查找前 k 个预测的类名称和置信度得分
+6. 显示结果
+
+```python
+def process_images(model, image_paths, size, preprocess_input, display_top_k=False, top_k=2):
+    
+    plt.figure(figsize=(20,7))
+    for idx, image_path in enumerate(image_paths):
+    
+        # Read the image using TensorFlow.
+        tf_image = tf.io.read_file(image_path)
+
+        # Decode the above `tf_image` from a Bytes string to a numeric Tensor.
+        decoded_image = tf.image.decode_image(tf_image)
+
+        # Resize the image to the spatial size required by the model.
+        image_resized = tf.image.resize(decoded_image, size)
+
+        # Add a batch dimension to the first axis (required). 
+        image_batch = tf.expand_dims(image_resized, axis=0)
+
+        # Pre-process the input image.
+        image_batch = preprocess_input(image_batch)
+
+        # Forward pass through the model to make predictions.
+        preds = model.predict(image_batch)
+
+        # Decode (and rank the top-k) predictions. 
+        # Returns a list of tuples: (class ID, class description, probability)
+        decoded_preds = tf.keras.applications.imagenet_utils.decode_predictions(
+            preds=preds,
+            top=5
+        )
+        
+        if display_top_k == True:
+            for jdx in range(top_k):
+                print("Top {} predicted class:   Pr(Class={:20} [index={:4}]) = {:5.2f}".format(
+                    jdx + 1, decoded_preds[0][jdx][1], jdx, decoded_preds[0][jdx][2] * 100))
+    
+        plt.subplot(2,4,idx+1)
+        plt.imshow(decoded_image)
+        plt.axis('off')
+        label = decoded_preds[0][0][1]
+        score = decoded_preds[0][0][2] * 100
+        title = label + ' ' + str('{:.2f}%'.format(score))
+        plt.title(title, fontsize=16)
+```
+
+### 07-05 使用预训练模型进行预测
+
+我们现在准备使用上面定义的函数进行预测。
+
+#### 07-05-01 VGG-16
+
+```python
+model = model_vgg16
+size = (224, 224) 
+
+preprocess_input = tf.keras.applications.vgg16.preprocess_input
+
+process_images(model, image_paths, size, preprocess_input)
+```
+
+```text
+1/1 [==============================] - 1s 1s/step
+Downloading data from https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json
+35363/35363 [==============================] - 0s 0us/step
+1/1 [==============================] - 1s 609ms/step
+1/1 [==============================] - 1s 806ms/step
+1/1 [==============================] - 1s 772ms/step
+1/1 [==============================] - 1s 1s/step
+1/1 [==============================] - 1s 1s/step
+1/1 [==============================] - 1s 674ms/step
+1/1 [==============================] - 1s 606ms/step
+```
+
+ ![](07_image_classification_using_pre_trained_imagenet_models/download3.png)
+
+#### 07-05-02 Resnet-50
+
+```python
+model = model_resnet50
+size = (224, 224)
+
+preprocess_input = tf.keras.applications.resnet50.preprocess_input
+
+process_images(model, image_paths, size, preprocess_input)
+```
+
+```text
+1/1 [==============================] - 1s 1s/step
+1/1 [==============================] - 0s 147ms/step
+1/1 [==============================] - 0s 147ms/step
+1/1 [==============================] - 0s 150ms/step
+1/1 [==============================] - 0s 150ms/step
+1/1 [==============================] - 0s 134ms/step
+1/1 [==============================] - 0s 135ms/step
+1/1 [==============================] - 0s 161ms/step
+```
+
+ ![](07_image_classification_using_pre_trained_imagenet_models/download4.png)
+
+#### 07-05-03 Inception-V3
+
+对于最后一个模型，我们将使用可选输入参数 display_top_k=True 来显示每个图像的前两个预测。
+
+```python
+model = model_inception_v3
+size = (299, 299)
+
+preprocess_input = tf.keras.applications.inception_v3.preprocess_input
+
+process_images(model, image_paths, size, preprocess_input, display_top_k=True)
+```
+
+```text
+1/1 [==============================] - 1s 1s/step
+Top 1 predicted class:   Pr(Class=ballplayer           [index=   0]) = 69.22
+Top 2 predicted class:   Pr(Class=baseball             [index=   1]) = 30.62
+1/1 [==============================] - 0s 186ms/step
+Top 1 predicted class:   Pr(Class=anemone_fish         [index=   0]) = 92.48
+Top 2 predicted class:   Pr(Class=sea_anemone          [index=   1]) =  2.61
+1/1 [==============================] - 0s 182ms/step
+Top 1 predicted class:   Pr(Class=African_elephant     [index=   0]) = 89.94
+Top 2 predicted class:   Pr(Class=tusker               [index=   1]) =  7.94
+1/1 [==============================] - 0s 200ms/step
+Top 1 predicted class:   Pr(Class=forklift             [index=   0]) = 98.95
+Top 2 predicted class:   Pr(Class=golfcart             [index=   1]) =  0.07
+1/1 [==============================] - 0s 181ms/step
+Top 1 predicted class:   Pr(Class=ice_cream            [index=   0]) = 99.60
+Top 2 predicted class:   Pr(Class=cradle               [index=   1]) =  0.08
+1/1 [==============================] - 0s 183ms/step
+Top 1 predicted class:   Pr(Class=lemon                [index=   0]) = 97.06
+Top 2 predicted class:   Pr(Class=orange               [index=   1]) =  2.12
+1/1 [==============================] - 0s 186ms/step
+Top 1 predicted class:   Pr(Class=magnetic_compass     [index=   0]) = 97.08
+Top 2 predicted class:   Pr(Class=stopwatch            [index=   1]) =  0.37
+1/1 [==============================] - 0s 178ms/step
+Top 1 predicted class:   Pr(Class=ice_bear             [index=   0]) = 84.80
+Top 2 predicted class:   Pr(Class=brown_bear           [index=   1]) =  0.47
+```
+
+ ![](07_image_classification_using_pre_trained_imagenet_models/download5.png)
+
+请注意，模型预测的第二个最可能的类别在上面显示的每种情况下都很有意义。例如，棒球运动员的第二个选择是棒球，磁性罗盘的第二个选择是stop_watch。请记住，ImageNet 数据集中有 1,000 个类别，尽管这些都是非常清晰且独特的图像，但许多类别与其他类别共享特征，因此这些结果非常令人印象深刻。
+
+### 07-06 结论
+
+在本笔记本中，我们学习了如何使用 Keras  中的三种不同的预训练模型执行图像分类。在后续笔记本中，您将了解有关利用预训练模型为特定应用程序自定义模型的更多信息。这是一种非常常见的技术，称为迁移学习，我们从预先训练的模型开始，然后用新图像重新训练模型的一部分。为了使这一点更加具体，假设您需要对 ImageNet 中不存在的对象类型进行分类。您可以从预先训练的 ImageNet  模型开始，然后使用您感兴趣的类的训练图像重新训练模型的一部分。我们将在即将推出的笔记本中探讨此主题。
+
+作为实验，我们鼓励您使用此笔记本对自己的图像进行分类并查看模型的表现。
+
