@@ -1856,7 +1856,7 @@ plt.show()
 
 ImageNet项目是一个大型视觉数据库，专为视觉对象识别软件研究而设计。这个项目的想法是由人工智能研究员李飞飞在 15 年前提出的。 ImageNet 团队于 2009 年首次展示了他们的数据集。
 
-自 2010 年以来，ImageNet  项目每年举办一次软件竞赛，研究团队评估他们的计算机视觉算法是否适用于各种视觉识别任务，例如对象分类和对象定位。训练数据是 ImageNet  的子集，包含属于 1,000 个类别的 120 万张图像。 2012 年，深度学习成为人们关注的焦点，当时 Alex Krizhevsky  和他的团队以 11% 的优势赢得了比赛。 ILSVRC 和 Imagenet 有时可以互换使用。
+自 2010 年以来，ImageNet  项目每年举办一次软件竞赛，研究团队评估他们的计算机视觉算法是否适用于各种视觉识别任务，例如对象分类和对象定位。训练数据是 ImageNet  的子集，包含属于 1,000 个类别的 120 万张图像。 2012 年，深度学习成为人们关注的焦点，当时 Alex Krizhevsky  和他的团队以 11% 的优势赢得了比赛。 (所以命名为 AlexNet )ILSVRC 和 Imagenet 有时可以互换使用。
 
 ImageNet  数据集有多种子集用于不同的环境。 ImageNet 最常用的子集之一是“ImageNet 大规模视觉识别挑战赛 (ILSVRC)  2012-2017 图像分类和定位数据集”。这在研究文献中也被称为 ImageNet-1K 或 ILSVRC2017，反映了涉及 1,000  个类别的原始 ILSVRC 挑战。
 
@@ -2178,3 +2178,877 @@ Top 2 predicted class:   Pr(Class=brown_bear           [index=   1]) =  0.47
 
 作为实验，我们鼓励您使用此笔记本对自己的图像进行分类并查看模型的表现。
 
+
+
+## 08 迁移学习和微调 
+
+Transfer Learning and Fine-tuning
+
+<iframe width="899" height="506" src="https://www.youtube.com/embed/10uDPsdAUdY" title="The Ultimate Guide to Fine-Tuning Pre-Trained Models in TensorFlow &amp; Keras." frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 释放 Tensorflow 和 Keras 中微调预训练模型的力量
+
+Unlock the Power of Fine-Tuning Pre-Trained Models in Tensorflow & Keras
+
+在下文中，我们将探索如何利用可用于您自己的数据集的预训练模型的可配置自定义选项。当您的数据集和计算资源有限时，这尤其有用。我们将首先总结利用预训练模型的几个可配置项，但真正的力量来自微调，这是本文的重点。
+
+ ![](08_transfer_learning_and_fine_turning/download1.png)
+
+我们将使用 VGG-16 网络在图像分类的背景下演示微调，但我们此处介绍的概念并不特定于任何特定模型或任务。当您的数据集和/或计算资源有限时，微调特别有用。但是，在详细介绍微调之前，我们将首先总结利用预训练模型的几个选项，其中包括：
+
+1. 使用开箱即用的预训练模型
+2. 从头开始训练模型
+3. 迁移学习
+4. 微调
+
+在下面的实现中，我们将使用德国交通标志识别基准 (GTSRB) 的修改版本，这是一个著名的分类数据集，包含 43  个类别的德国交通标志。整个数据集（训练和测试）包含超过 50,000  张图像。然而，为了展示微调在小型数据集上的威力，我们提取了一小部分原始数据集，每个类仅包含 40 个样本（28 个用于训练，12  个用于验证）。为了评估模型的泛化能力，我们将使用包含 12,630 个样本的原始测试数据集。
+
+### 08-00 目录
+
+1. 培训选项概述
+2. 下载并解压数据集
+3. 数据集和训练配置
+4. 创建训练和验证数据集
+5. 创建测试数据集
+6. 建模VGG-16（用于微调））
+7. 模型评估
+8. 结论
+
+### 08-01 预训练模型用例概述
+
+在我们继续进行微调的编码实现之前，查看下表会有所帮助，该表总结了几个用例。在之前的笔记本中，我们展示了如何使用预训练的 ImageNet 模型来执行分类。
+
+#### 08-01-01 预训练的 ImageNet 模型
+
+如果您需要对包含 ImageNet  中许多类的广泛内容执行图像分类，那么使用预训练模型是一个很好的选择。顾名思义，无需训练；您只需加载模型并对预处理的输入图像进行预测即可。  Keras 中有许多预训练模型可供您选择。有关更多详细信息，请参阅我们之前关于此主题的文章。
+
+对于您的应用程序包含 ImageNet 中未包含的特定类的情况，您有三个附加选项。 Keras 应用程序 API 可以方便地访问许多 CNN 分类模型，您可以将其加载到内存中、进行自定义和训练。
+
+ ![](08_transfer_learning_and_fine_turning/download2.png)
+
+以下部分总结了每个选项的过程。值得强调的是，对于下面的每种训练方法，都需要为您的自定义数据集定义一个新的分类器，因为 Keras 中的预训练模型假设 ImageNet 分类器具有 1,000 个输出。我们稍后将在本笔记本中介绍如何在编码实现中执行此操作。
+
+#### 08-01-02 从头开始训练
+
+如果您需要为新数据集自定义模型，一种选择是加载模型并从头开始训练。从头开始训练时，整个模型使用随机权重进行初始化，并从头开始进行训练（使用重新定义的分类器）。
+
+从头开始训练模型需要大量数据和大量计算资源，尽管这取决于模型的大小。尽管如此，它仍然是一个需要考虑的重要因素，特别是如果您没有太多数据并且为您的应用程序获取带标签的训练数据很困难。存在更好的选择，但作为参考，我们在这个小数据集上从头开始训练 VGG-16 模型，以建立基准性能。没有尝试调整超参数，但我们确实在分类器中使用了 dropout  层，这是为了减轻如此小的数据集的过度拟合所需要的。我们稍后会回到这些图并将它们与微调结果进行比较。
+
+ ![](08_transfer_learning_and_fine_turning/download3.png)
+
+尽管我们添加了 dropout 层，但仍然有证据表明模型过度拟合，因为验证损失比训练损失高很多。对于如此小的数据集，模型很难很好地学习以泛化到未见过的数据。
+
+这里值得一提的是，初始损失应该有点接近随机机会。对于分类交叉熵，损失是正确类别概率的负对数。最初，我们预计正确类别的概率大致等于 (1/43)，因此初始损失应该接近 3.76。
+$$
+loss = -log(\frac{1}{43}) = 3.76
+$$
+这是一个很好的健全性检查，我们可以在上面的损失图中确认这一点。
+
+#### 08-01-03 迁移学习
+
+迁移学习是一种重新利用预训练模型来对新数据集进行预测的简单方法。这个概念很简单。我们使用模型的预训练特征提取器（卷积基）并重新训练新的分类器来学习新数据集的新权重。这有时被称为“冻结”特征提取器中的层，这意味着我们加载预先训练的权重，并且在训练过程中不会尝试进一步修改它们。该理论认为，预先训练的 ImageNet 特征提取器已经学习了用于检测许多不同对象类型的有价值的特征。我们假设这些特征足够通用，我们只需要重新训练网络的分类器部分。
+
+ ![](08_transfer_learning_and_fine_turning/download5.png)
+
+与从头开始训练相比，这种方法需要更少的数据和计算资源。请记住，训练模型通常需要多次迭代才能确定最终模型的一组合适的超参数，因此实验和迭代所需的时间将大大增加。由于预先训练的模型是在数百万张图像上进行训练的，因此我们有必要尝试并利用这种固有的能力。迁移学习使您可以快速研究如何针对新数据集自定义预训练模型。然而，有时重新训练分类器还不够。这就是微调非常有用的地方。
+
+通过微调，我们希望专门利用预训练模型的较低级别特征，但为“微调”卷积基础的最后几层提供一定的灵活性，以便为数据集提供最佳的定制。因此，我们“冻结”初始层（即，使它们不可训练）并让模型训练特征提取器的最后几层以及分类器。请注意，特征提取器中的所有层都初始化为 ImageNet  权重。一旦训练开始，特征提取器最后几层的权重就会进一步更新，这就是这种方法被称为微调的原因。另外，请注意，分类器中的权重被初始化为小的随机值，因为我们希望分类器学习对新内容进行分类所需的新权重。
+
+在本笔记本的其余部分中，我们将重点关注微调实现。我们还将花一些时间准备测试数据集，该数据集的格式与训练和验证数据集不同。这提供了一个很好的机会来探索用于管理在文件系统上以不同方式组织的图像数据的方法和技术。
+
+先准备好库
+
+```python
+import os
+import pathlib
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+import zipfile
+import requests
+import glob as glob
+
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
+from tensorflow.keras.utils import image_dataset_from_directory
+
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from dataclasses import dataclass
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+SEED_VALUE = 41
+
+# Fix seed to make training deterministic.
+random.seed(SEED_VALUE)
+np.random.seed(SEED_VALUE)
+tf.random.set_seed(SEED_VALUE)
+```
+
+### 08-02 下载和解压数据集
+
+德国交通标志识别基准 (GTSRB) 是一个著名的分类数据集，包含 43 个类别的德国交通标志。整个数据集（训练和测试）包含超过 50,000 张图像。仅训练集就包含超过 39,000 张图像。
+
+为了演示如何在数据集大小有限的情况下利用预训练模型，我们创建了 GTSRB 数据集的小型版本，其中每个类仅包含 40  个图像。值得注意的是，数据集中的许多图像都取自视频帧。因此，原始训练数据集中的许多图像几乎是重复的。因此，我们通过对每 n  个图像样本进行采样来创建数据集的小型版本，以维护各种图像，而不是使用每个类别的前 40  个样本。此外，为了方便起见，我们从训练数据集中创建了一个单独的验证数据集。训练数据集每类包含 28 个图像，验证数据集每类包含 12  个图像。以下代码单元将下载数据集并将其提取到本地系统。
+
+```python
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+
+    # Downloading zip file using urllib package.
+    urlretrieve(url, save_path)
+
+    try:
+        # Extracting zip file using the zipfile package.
+        with ZipFile(save_path) as z:
+            # Extract ZIP file contents in the same directory.
+            z.extractall(os.path.split(save_path)[0])
+
+        print("Done")
+
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/uzgh5g2bnz40o13/dataset_traffic_signs_40_samples_per_class.zip?dl=1"
+
+dataset_path   = os.path.join(os.getcwd(), "dataset_traffic_signs_40_samples_per_class")
+asset_zip_path = os.path.join(os.getcwd(), "dataset_traffic_signs_40_samples_per_class.zip")
+
+# Download if assest ZIP does not exists. 
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+```
+
+### 08-03 数据集和训练配置
+
+这里我们可以使用Python dataclasses模块创建两个类来方便地配置数据和训练参数。请注意，我们指定了  LAYERS_FINE_TUNE = 8，这是一个微调配置参数，表示我们要微调 VGG-16  模型的最后八层。这是您需要尝试的值。您也可以尝试将其设置为 4，这只会微调卷积基础的最后四层。
+
+```python
+@dataclass(frozen=True)
+class DatasetConfig:
+    NUM_CLASSES: int = 43
+    IMG_HEIGHT:  int = 224
+    IMG_WIDTH:   int = 224
+    CHANNELS:    int = 3
+        
+    DATA_ROOT_TRAIN:  str = os.path.join(dataset_path, "Train")  
+    DATA_ROOT_VALID:  str = os.path.join(dataset_path, "Valid")
+    DATA_ROOT_TEST:   str = os.path.join(dataset_path, "Test")
+    DATA_TEST_GT:     str = os.path.join(dataset_path, "Test.csv")    
+        
+
+@dataclass(frozen=True)
+class TrainingConfig:
+    BATCH_SIZE:       int   = 32
+    EPOCHS:           int   = 101
+    LEARNING_RATE:    float = 0.0001
+    DROPOUT:          float = 0.6
+    LAYERS_FINE_TUNE: int   = 8        
+```
+
+### 08-04 创建训练和验证数据集
+
+这里我们使用 image_dataset_from_directory()，这是 Keras 中用于创建图像数据集的一个非常方便的实用程序。数据集的预期文件结构如下所示，其中每个类的图像都包含在单独的类子文件夹中。
+
+```text
+main_directory/ 
+    class_a/
+        a_image_1.png
+        a_image_2.png
+    class_b/
+        b_image_1.png
+        b_image_2.png
+```
+
+该函数记录在此处。它只有一个必需参数，即数据集的顶级文件夹，但有几个可选参数可用于配置数据集。尽管我们使用其中一些的默认值，但我们还是强调了其中一些。其中，我们可以选择如何指定标签编码。这里我们决定使用默认的整数编码（label_mode='int'），而不是 one-hot 标签编码。可以使用任一选项，但在此实现中，下面还有一些额外的代码，假设整数编码。
+
+```python
+train_dataset = image_dataset_from_directory(directory=DatasetConfig.DATA_ROOT_TRAIN,
+                                             batch_size=TrainingConfig.BATCH_SIZE,
+                                             shuffle=True,
+                                             seed=SEED_VALUE,
+                                             label_mode='int', # Use integer encoding
+                                             image_size=(DatasetConfig.IMG_HEIGHT, DatasetConfig.IMG_WIDTH),
+                                            )
+
+valid_dataset = image_dataset_from_directory(directory=DatasetConfig.DATA_ROOT_VALID,
+                                             batch_size=TrainingConfig.BATCH_SIZE,
+                                             shuffle=True,
+                                             seed=SEED_VALUE,
+                                             label_mode='int', # Use integer encoding
+                                             image_size=(DatasetConfig.IMG_HEIGHT, DatasetConfig.IMG_WIDTH),
+                                            )
+```
+
+```text
+# Found 1204 files belonging to 43 classes.
+# Found 516 files belonging to 43 classes
+```
+
+```python
+# Display the class names from the training dataset.
+print(train_dataset.class_names)
+```
+
+```shell
+# ['0', '1', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '2', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '3', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '4', '40', '41', '42', '5', '6', '7', '8', '9']
+```
+
+请注意，推断的类名称采用字母数字序列，而不是数字顺序。这是我们在构建测试数据集时需要考虑的一个重要观察结果。
+
+#### 08-04-01 显示训练数据集中的示例图像
+
+目视检查数据集中的一些图像总是一个好主意。如下图所示，图像质量差异很大。
+
+```python
+class_names = train_dataset.class_names
+
+plt.figure(figsize=(18, 10))
+
+# Assumes dataset batch_size is at least 32.
+num_rows = 4
+num_cols = 8
+
+# Here we use the take() method to retrieve just the first batch of data from the training portion of the dataset.
+for image_batch, labels_batch in train_dataset.take(1):
+    # Plot each of the images in the batch and the associated ground truth labels.
+    for i in range(num_rows * num_cols):
+        ax = plt.subplot(num_rows, num_cols, i + 1)
+        plt.imshow(image_batch[i].numpy().astype("uint8"))
+        truth_idx = labels_batch[i].numpy()
+        plt.title(class_names[truth_idx])
+        plt.axis("off")
+```
+
+ ![](08_transfer_learning_and_fine_turning/download6.png)
+
+### 08-05 创建测试数据集
+
+使用  image_dataset_from_directory()  可以轻松创建训练和验证数据集。但是，由于测试数据集的图像和标签单独存储在文件系统上，因此我们需要编写一些自定义代码来读取和加载此数据。要创建测试数据集，我们需要将图像和标签加载到内存中，并将它们组合起来创建 (tf.data.Dataset) 测试数据集。需要四个步骤：
+
+1. 从提供的 csv 文件中检索类标签并将它们作为 Python 列表存储在内存中
+2. 将内存中的图像文件路径列表构建为 Python 列表
+3. 将图像路径和关联标签合并到 tf.data.Dataset 对象中
+4. 使用数据集对象映射方法加载并预处理数据集中的图像
+
+#### 08-05-01 负载实测真实数据标签
+
+测试数据集的真实标签列在 csv 文件 (Test.csv) 中。下面显示了文件中的前几个示例以供参考。
+
+ ![](08_transfer_learning_and_fine_turning/download7.png)
+
+我们可以使用 Pandas 数据框轻松地从该文件中提取类 ID。以下代码单元从此文件中读取类 ID 并将它们存储在 Python 列表中。
+
+```python
+import pandas as pd
+
+input_file = DatasetConfig.DATA_TEST_GT
+
+dataset = pd.read_csv(input_file)
+df = pd.DataFrame(dataset)
+cols = [6]
+df = df[df.columns[cols]]
+ground_truth_ids = df["ClassId"].values.tolist()
+print("Total number of Test labels: ", len(ground_truth_ids))
+print(ground_truth_ids[0:10])
+# Total number of Test labels:  12630 [16, 1, 38, 33, 11, 38, 18, 12, 25, 35]
+```
+
+请注意，这些标签与真实数据文件中的前 10  个标签相匹配，这正是我们所期望的。但是，请记住，训练和验证数据集中的类名称具有字母数字顺序，而不再是数字序列。这是该数据集的一个独特问题，因为类名由数字组成，这些数字按字母顺序而不是数字顺序排序。因此，我们需要在测试数据集中提供相同的映射。
+
+```python
+# For referenece, let's print the class names from the train/valid datasets again.
+print(train_dataset.class_names)
+```
+
+```shell
+# ['0', '1', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '2', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '3', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '4', '40', '41', '42', '5', '6', '7', '8', '9']
+```
+
+#### 08-05-02 将 Ground Truth 类 ID 映射到训练/有效数据集中的 ID
+
+为了创建与训练和验证数据集中的标签 ID 一致的测试数据集，我们需要构建一个字典，将测试数据集中的真实 ID 映射到类名 ID。这将确保模型正确解释测试数据集中的真实标签。
+
+注意：通常不需要此步骤，但这是从类文件夹名称推断类名称的方式的产物。另一种解决方案是在 image_dataset_from_directory() 中使用 class_names 参数，其中我们明确指定类名的顺序为数字顺序。
+
+```py
+# Convert train/valid class names to integers.
+class_names_int = list(map(int, train_dataset.class_names))
+
+# Create a dictionary mapping ground truth IDs to class name IDs.
+gtid_2_cnidx = dict(zip(class_names_int, range(0, DatasetConfig.NUM_CLASSES)))
+
+gtid_2_cnidx.items()
+```
+
+```shell
+#dict_items([(0, 0), (1, 1), (10, 2), (11, 3), (12, 4), (13, 5), (14, 6), (15, 7), (16, 8), (17, 9), (18, 10), (19, 11), (2, 12), (20, 13), (21, 14), (22, 15), (23, 16), (24, 17), (25, 18), (26, 19), (27, 20), (28, 21), (29, 22), (3, 23), (30, 24), (31, 25), (32, 26), (33, 27), (34, 28), (35, 29), (36, 30), (37, 31), (38, 32), (39, 33), (4, 34), (40, 35), (41, 36), (42, 37), (5, 38), (6, 39), (7, 40), (8, 41), (9, 42)])
+```
+
+```python
+# Convert the ground truth Class IDs to IDs that correctly map to the same classes
+# in the train and validation datasets.
+label_ids = []
+for idx in range(len(ground_truth_ids)):
+    label_ids.append(gtid_2_cnidx[ground_truth_ids[idx]])
+
+print("Original ground truth class IDs: ", ground_truth_ids[0:10])
+print("New mapping required:            ", label_ids[0:10])
+print("")
+print("Train/Valid dataset class names: ", train_dataset.class_names)
+```
+
+```text
+Original ground truth class IDs:  [16, 1, 38, 33, 11, 38, 18, 12, 25, 35]
+New mapping required:             [8, 1, 32, 27, 3, 32, 10, 4, 18, 29]
+
+Train/Valid dataset class names:  ['0', '1', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '2', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '3', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '4', '40', '41', '42', '5', '6', '7', '8', '9']
+```
+
+#### 08-05-03 创建文件路径来测试图像
+
+接下来，我们为测试数据集中的每个图像创建文件路径列表。
+
+```python
+# Get all the path names to the Test images (will prune later)
+image_paths = sorted(glob.glob(DatasetConfig.DATA_ROOT_TEST + os.sep + "*.png"))
+
+print(len(image_paths))
+print("")
+# Print the first 5 image paths to confirm.
+for idx in range(5):
+    print(image_paths[idx])
+```
+
+```shell
+12630
+
+C:\Users\vaibh\Desktop\Work\big_vision\work\Tf-keras_bootcamp\dataset_traffic_signs_40_samples_per_class\Test\00000.png
+C:\Users\vaibh\Desktop\Work\big_vision\work\Tf-keras_bootcamp\dataset_traffic_signs_40_samples_per_class\Test\00001.png
+C:\Users\vaibh\Desktop\Work\big_vision\work\Tf-keras_bootcamp\dataset_traffic_signs_40_samples_per_class\Test\00002.png
+C:\Users\vaibh\Desktop\Work\big_vision\work\Tf-keras_bootcamp\dataset_traffic_signs_40_samples_per_class\Test\00003.png
+C:\Users\vaibh\Desktop\Work\big_vision\work\Tf-keras_bootcamp\dataset_traffic_signs_40_samples_per_class\Test\00004.png
+```
+
+#### 08-05-04 组合图像和标签来创建测试数据集
+
+我们现在可以使用 `from_tensor_slices()` 将图像路径和图像标签组合到 `tf.data.dataset` 中。
+
+```python
+test_dataset = tf.data.Dataset.from_tensor_slices((image_paths, label_ids))
+```
+
+#### 08-05-05 加载和预处理图像
+
+我们仍然需要将数据集加载到内存中并预处理图像。为此，我们定义了三个方便的函数，用于在下面的代码单元中加载和调整测试图像的大小。
+
+```python
+def preprocess_image(image):
+    # Decode and resize image.
+    image = tf.image.decode_png(image, channels=3)
+    image = tf.image.resize(image, [DatasetConfig.IMG_HEIGHT, DatasetConfig.IMG_WIDTH])
+    return image
+
+def load_and_preprocess_image(path):
+    # Read image into memory as a byte string.
+    image = tf.io.read_file(path)
+    return preprocess_image(image)
+
+def load_and_preprocess_from_path_label(path, label):
+    return load_and_preprocess_image(path), label
+```
+
+接下来，我们使用测试数据集的 map() 方法加载和预处理图像以调用上述函数。我们还设置了数据集的批量大小。
+
+```python
+# Apply the functions above to the test dataset.
+test_dataset = test_dataset.map(load_and_preprocess_from_path_label)
+
+# Set the batch size for the dataset.
+test_dataset = test_dataset.batch(TrainingConfig.BATCH_SIZE)
+```
+
+#### 08-05-06 显示测试数据集中的示例图像
+
+为了确认我们已经正确创建了测试数据集，我们将显示第一批的图像。尽管样本量非常小，但很明显测试图像的图像质量差异很大，其中几张图像严重曝光不足。
+
+```python
+plt.figure(figsize=(18, 10))
+
+# Assumes dataset batch_size is at least 32.
+num_rows = 4
+num_cols = 8
+
+# Here we use the take() method to retrieve just the first batch of data from the test dataset.
+for image_batch, labels_batch in test_dataset.take(1):
+    
+    # Plot each of the images in the batch and the associated ground truth labels.
+    for i in range(num_rows * num_cols):
+        ax = plt.subplot(num_rows, num_cols, i + 1)
+        plt.imshow(image_batch[i].numpy().astype("uint8"))
+        truth_idx = labels_batch[i].numpy()
+        plt.title(class_names[truth_idx])
+        plt.axis("off")
+```
+
+ ![](08_transfer_learning_and_fine_turning/download8.png)
+
+### 08-06 建模 VGG-16（用于微调）
+
+Keras API 提供了以下实用程序，用于实例化 VGG-16 模型。预训练 ImageNet 模型的默认设置如下所示。
+
+```python
+tf.keras.applications.vgg16.VGG16(include_top=True, 
+                                  weights='imagenet', 
+                                  input_tensor=None,
+                                  input_shape=None, 
+                                  pooling=None, 
+                                  classes=1000,
+                                  classifier_activation='softmax',
+                                 )
+```
+
+为了配置模型进行微调，我们将使用从 ImageNet  数据集学习到的权重加载模型的卷积基。这些权重作为微调数据集模型的起点。由于我们需要重新定义分类器，因此我们将加载没有分类器的模型（include_top=False），因此我们可以为数据集指定我们自己的分类器。
+
+有关 Keras 中可用的 VGG-16 模型的更多信息，请参阅以下文档链接：Keras VGG-16 模型 API。
+
+#### 08-06-01 加载 VGG-16 卷积基
+
+我们首先创建 VGG-16  卷积基础的模型。我们可以通过实例化模型并设置 include_top = False 来做到这一点，这会排除完全连接的层。我们还将使用通过在  ImageNet 数据集weights='imagenet' 上训练模型而学习到的权重来实例化模型。
+
+```python
+# Specify the model input shape.
+input_shape = (DatasetConfig.IMG_HEIGHT, DatasetConfig.IMG_WIDTH, DatasetConfig.CHANNELS)
+
+print('Loading model with ImageNet weights...')
+vgg16_conv_base = tf.keras.applications.vgg16.VGG16(input_shape=input_shape,
+                                                    include_top=False, # We will supply our own top.
+                                                    weights='imagenet',
+                                                   )
+vgg16_conv_base.summary()
+```
+
+```text
+Loading model with ImageNet weights...
+Model: "vgg16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_1 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ block1_conv1 (Conv2D)       (None, 224, 224, 64)      1792      
+                                                                 
+ block1_conv2 (Conv2D)       (None, 224, 224, 64)      36928     
+                                                                 
+ block1_pool (MaxPooling2D)  (None, 112, 112, 64)      0         
+                                                                 
+ block2_conv1 (Conv2D)       (None, 112, 112, 128)     73856     
+                                                                 
+ block2_conv2 (Conv2D)       (None, 112, 112, 128)     147584    
+                                                                 
+ block2_pool (MaxPooling2D)  (None, 56, 56, 128)       0         
+                                                                 
+ block3_conv1 (Conv2D)       (None, 56, 56, 256)       295168    
+                                                                 
+ block3_conv2 (Conv2D)       (None, 56, 56, 256)       590080    
+                                                                 
+ block3_conv3 (Conv2D)       (None, 56, 56, 256)       590080    
+                                                                 
+ block3_pool (MaxPooling2D)  (None, 28, 28, 256)       0         
+                                                                 
+ block4_conv1 (Conv2D)       (None, 28, 28, 512)       1180160   
+                                                                 
+ block4_conv2 (Conv2D)       (None, 28, 28, 512)       2359808   
+                                                                 
+ block4_conv3 (Conv2D)       (None, 28, 28, 512)       2359808   
+                                                                 
+ block4_pool (MaxPooling2D)  (None, 14, 14, 512)       0         
+                                                                 
+ block5_conv1 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_conv2 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_conv3 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_pool (MaxPooling2D)  (None, 7, 7, 512)         0         
+                                                                 
+=================================================================
+Total params: 14,714,688
+Trainable params: 14,714,688
+Non-trainable params: 0
+_________________________________________________________________
+```
+
+#### 08-06-02 冻结卷积基础中的初始层
+
+现在我们已经加载了卷积基础，我们需要锁定初始层，以便只有最后几个层 (TrainingConfig.LAYERS_FINE_TUNE = 8) 是可训练的。有两种方法可以指定模型中的哪些层是可训练（可调）的。
+
+1. 我们可以通过将可训练标志设置为 True 来使整个卷积基础可训练。然后循环初始层，并通过将每个层的相同（可训练）标志设置为 False 来使它们不可训练。
+2. 我们可以通过将可训练标志设置为 False 来冻结整个卷积基础，然后循环最后几层并将可训练标志设置为 True。
+
+我们在下面的代码单元中使用第一种方法。我们首先将 trainablee 属性设置为 True，将整个卷积基设置为“可训练”。
+
+```python
+# Set all layers in the convolutional base to Trainable (will FREEZE initial layers further below).
+vgg16_conv_base.trainable = True
+
+# Specify the number of layers to fine tune at the end of the convolutional base.
+num_layers_fine_tune = TrainingConfig.LAYERS_FINE_TUNE
+num_layers = len(vgg16_conv_base.layers)
+
+# Freeze the initial layers in the convolutional base.
+for model_layer in vgg16_conv_base.layers[: num_layers - num_layers_fine_tune]:
+    print(f"FREEZING LAYER: {model_layer}")
+    model_layer.trainable = False
+
+print("\n")
+print(f"Configured to fine tune the last {num_layers_fine_tune} convolutional layers...")
+print("\n")
+
+vgg16_conv_base.summary()
+```
+
+```text
+FREEZING LAYER: <keras.engine.input_layer.InputLayer object at 0x000001FC5AAABAC0>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5AC9D840>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5A268880>
+FREEZING LAYER: <keras.layers.pooling.max_pooling2d.MaxPooling2D object at 0x000001FC5A26AE60>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5A26A620>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5A27F130>
+FREEZING LAYER: <keras.layers.pooling.max_pooling2d.MaxPooling2D object at 0x000001FC5A252110>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5A251060>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FC5AA225C0>
+FREEZING LAYER: <keras.layers.convolutional.conv2d.Conv2D object at 0x000001FB65A107F0>
+FREEZING LAYER: <keras.layers.pooling.max_pooling2d.MaxPooling2D object at 0x000001FC5A028970>
+Configured to fine tune the last 8 convolutional layers...
+
+
+Model: "vgg16"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_1 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ block1_conv1 (Conv2D)       (None, 224, 224, 64)      1792      
+                                          Trainable params                       
+ block1_conv2 (Conv2D)       (None, 224, 224, 64)      36928     
+                                                                 
+ block1_pool (MaxPooling2D)  (None, 112, 112, 64)      0         
+                                                                 
+ block2_conv1 (Conv2D)       (None, 112, 112, 128)     73856     
+                                                                 
+ block2_conv2 (Conv2D)       (None, 112, 112, 128)     147584    
+                                                                 
+ block2_pool (MaxPooling2D)  (None, 56, 56, 128)       0         
+                                                                 
+ block3_conv1 (Conv2D)       (None, 56, 56, 256)       295168    
+                                                                 
+ block3_conv2 (Conv2D)       (None, 56, 56, 256)       590080    
+                                                                 
+ block3_conv3 (Conv2D)       (None, 56, 56, 256)       590080    
+                                                                 
+ block3_pool (MaxPooling2D)  (None, 28, 28, 256)       0         
+                                                                 
+ block4_conv1 (Conv2D)       (None, 28, 28, 512)       1180160   
+                                                                 
+ block4_conv2 (Conv2D)       (None, 28, 28, 512)       2359808   
+                                                                 
+ block4_conv3 (Conv2D)       (None, 28, 28, 512)       2359808   
+                                                                 
+ block4_pool (MaxPooling2D)  (None, 14, 14, 512)       0         
+                                                                 
+ block5_conv1 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_conv2 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_conv3 (Conv2D)       (None, 14, 14, 512)       2359808   
+                                                                 
+ block5_pool (MaxPooling2D)  (None, 7, 7, 512)         0         
+                                                                 
+=================================================================
+Total params: 14,714,688
+Trainable params: 12,979,200
+Non-trainable params: 1,735,488
+_________________________________________________________________
+```
+
+请注意，在上面的模型摘要中，`Trainable params`可训练参数的数量现在较少。
+
+#### 08-06-03 添加分类器以完成模型
+
+由于我们打算训练并使用该模型对交通标志（43  类）进行分类，因此我们需要添加自己的分类层。在此示例中，我们选择仅使用一个包含 128 个节点的全连接密集层，后跟一个 softmax  输出层，其中包含 43 个类中每个类的 43  个节点。密集层的数量和每层的节点数量是设计选择，但输出层中的节点数量必须与数据集中的类数量相匹配。由于我们使用的数据集非常小（每类 40  个样本），模型很容易出现过拟合，因此我们还在分类器中添加了 dropout 层。然后组装整个模型，如下所示。
+
+```python
+inputs = tf.keras.Input(shape=input_shape)
+
+x = tf.keras.applications.vgg16.preprocess_input(inputs)
+
+x = vgg16_conv_base(x)
+
+# Flatten the output from the convolutional base.
+x = layers.Flatten()(x)
+
+# Add the classifier.
+x = layers.Dense(128, activation="relu")(x)
+x = layers.Dropout(TrainingConfig.DROPOUT)(x)
+
+# Output layer.
+outputs = layers.Dense(DatasetConfig.NUM_CLASSES, activation="softmax")(x)
+
+# The final model.
+model_vgg16_finetune = keras.Model(inputs, outputs)
+
+model_vgg16_finetune.summary()
+```
+
+```text
+Model: "model"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_2 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ tf.__operators__.getitem (S  (None, 224, 224, 3)      0         
+ licingOpLambda)                                                 
+                                                                 
+ tf.nn.bias_add (TFOpLambda)  (None, 224, 224, 3)      0         
+                                                                 
+ vgg16 (Functional)          (None, 7, 7, 512)         14714688  
+                                                                 
+ flatten (Flatten)           (None, 25088)             0         
+                                                                 
+ dense (Dense)               (None, 128)               3211392   
+                                                                 
+ dropout (Dropout)           (None, 128)               0         
+                                                                 
+ dense_1 (Dense)             (None, 43)                5547      
+                                                                 
+=================================================================
+Total params: 17,931,627
+Trainable params: 16,196,139
+Non-trainable params: 1,735,488
+_________________________________________________________________
+
+```
+
+#### 08-06-04 编译和训练模型
+
+这里我们使用 SparseCategoricalCrossentropy，因为我们使用的是整数编码标签。对于 one-hot  编码标签，适当的损失函数是分类交叉熵。由于我们在模型输出中包含了 Softmax 层，因此我们指定  from_logits=False。这是默认设置，但最好明确一下。或者，您可以删除模型中的softmax层并设置from_logits=True，损失函数将在内部应用softmax函数。结果应该是相同的。
+
+```python
+# Use this for integer encoded labels.
+model_vgg16_finetune.compile(
+    optimizer=tf.keras.optimizers.Adam(learning_rate=TrainingConfig.LEARNING_RATE),
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+    metrics=["accuracy"],
+)
+
+# Train the Model.
+training_results = model_vgg16_finetune.fit(train_dataset,
+                                            epochs=TrainingConfig.EPOCHS,
+                                            validation_data=valid_dataset,
+                                           )
+```
+
+```text
+Epoch 1/101
+
+2023-03-13 21:43:09.869404: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+38/38 [==============================] - ETA: 0s - loss: 4.6315 - accuracy: 0.0266
+
+2023-03-13 21:43:20.644352: I tensorflow/core/grappler/optimizers/custom_graph_optimizer_registry.cc:113] Plugin optimizer for device_type GPU is enabled.
+
+38/38 [==============================] - 14s 348ms/step - loss: 4.6315 - accuracy: 0.0266 - val_loss: 3.7607 - val_accuracy: 0.0233
+Epoch 2/101
+...
+...
+...
+Epoch 100/101
+38/38 [==============================] - 13s 338ms/step - loss: 7.7500e-05 - accuracy: 1.0000 - val_loss: 0.2015 - val_accuracy: 0.9690
+Epoch 101/101
+38/38 [==============================] - 13s 340ms/step - loss: 2.9507e-05 - accuracy: 1.0000 - val_loss: 0.2014 - val_accuracy: 0.9690
+```
+
+#### 08-06-05 绘制训练结果
+
+下面的便利函数用于绘制训练和验证损失和准确性。
+
+```python
+def plot_results(metrics, ylabel=None, ylim=None, metric_name=None, color=None):
+    fig, ax = plt.subplots(figsize=(15, 4))
+
+    if not (isinstance(metric_name, list) or isinstance(metric_name, tuple)):
+        metrics = [metrics,]
+        metric_name = [metric_name,]
+
+    for idx, metric in enumerate(metrics):
+        ax.plot(metric, color=color[idx])
+
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.title(ylabel)
+    plt.xlim([0, TrainingConfig.EPOCHS - 1])
+    plt.ylim(ylim)
+    # Tailor x-axis tick marks
+    ax.xaxis.set_major_locator(MultipleLocator(5))
+    ax.xaxis.set_major_formatter(FormatStrFormatter("%d"))
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    plt.grid(True)
+    plt.legend(metric_name)
+    plt.show()
+    plt.close()
+
+# Retrieve training results.
+train_loss = training_results.history["loss"]
+train_acc  = training_results.history["accuracy"]
+valid_loss = training_results.history["val_loss"]
+valid_acc  = training_results.history["val_accuracy"]
+
+plot_results(
+    [train_loss, valid_loss],
+    ylabel="Loss",
+    ylim=[0.0, 5.0],
+    metric_name=["Training Loss", "Validation Loss"],
+    color=["g", "b"],
+)
+
+plot_results(
+    [train_acc, valid_acc],
+    ylabel="Accuracy",
+    ylim=[0.0, 1.0],
+    metric_name=["Training Accuracy", "Validation Accuracy"],
+    color=["g", "b"],
+)
+```
+
+ ![](08_transfer_learning_and_fine_turning/download9.png)
+
+ ![](08_transfer_learning_and_fine_turning/download10.png)
+
+上面的训练图清楚地显示了损失的快速减少和准确性的增加，这可以归因于使用预训练权重初始化模型。值得注意的是，尽管数据集规模较小且图像质量存在差异，但验证准确率令人印象深刻，超过 95%。可以采用数据增强等技术来进一步提高准确性。总的来说，这些结果令人鼓舞，表明该模型已经学会很好地泛化到未见过的数据。
+
+#### 08-06-06 比较：微调与从头开始训练
+
+为了方便起见，我们提供了一个并排视图来显示从头开始训练模型和微调模型之间的区别。有几件事需要注意。首先，请注意，从头开始训练需要更长的时间。例如，微调的验证准确率仅在 15 个 epoch 后就达到 80%，而从头开始训练需要整整 100 个 epoch  才能接近相同的值。另外，请注意，即使两个模型都是在分类器中使用相同的 dropout  层实现的，从头开始训练更容易出现过度拟合。最后，微调模型的验证准确率提高了约 17%。
+
+ ![](08_transfer_learning_and_fine_turning/download11.png)
+
+### 08-07 模型评估
+
+我们可以在上图中看到训练和验证的准确性，但使用模型的评估（）方法来计算最后一个时期的值会很有帮助。在这里我们确认验证准确率接近 97%。
+
+#### 08-07-01 验证数据集
+
+```python
+print(f"Model valid accuracy: {model_vgg16_finetune.evaluate(valid_dataset)[1]*100.:.3f}")
+```
+
+```text
+17/17 [==============================] - 2s 141ms/step - loss: 0.2014 - accuracy: 0.9690
+Model valid accuracy: 96.899
+```
+
+#### 08-07-02 测试数据集
+
+在测试数据集上评估模型也很重要，该数据集非常大（12,630 张图像）。由于验证数据集中的样本数量非常小（每个类只有 12 个样本），因此尤其如此。如下所示，测试数据集上实现的准确率为 96.26%，在这种情况下与验证准确度非常接近，但情况并非总是如此。
+
+```py
+print(f"Model test accuracy: {model_vgg16_finetune.evaluate(test_dataset)[1]*100.:.3f}")
+```
+
+```text
+395/395 [==============================] - 58s 148ms/step - loss: 0.2244 - accuracy: 0.9625
+Model test accuracy: 96.255
+```
+
+#### 08-07-03 显示样本预测
+
+在这里，我们创建一个便利函数来绘制验证数据集和测试数据集的一些样本预测。目视抽查预测结果会很有帮助。每个显示的图像都包含一个带有真实标签（左）和预测标签（右）的标题。如果预测的标签不正确，标题将显示为红色以突出显示不正确的结果。
+
+```python
+def display_predictions(dataset, model, class_names):
+    
+    plt.figure(figsize=(20, 20))
+    num_rows = 8
+    num_cols = 8
+    jdx = 0
+
+    # Evaluate two batches.
+    for image_batch, labels_batch in dataset.take(2):
+        print(image_batch.shape)
+
+        # Predictions for the current batch.
+        predictions = model.predict(image_batch)
+
+        # Loop over all the images in the current batch.
+        for idx in range(len(labels_batch)):
+            pred_idx = tf.argmax(predictions[idx]).numpy()
+            truth_idx = labels_batch[idx].numpy()
+
+            # Set the title color based on the prediction.
+            if pred_idx == truth_idx:
+                color = "g"
+            else:
+                color = "r"
+
+            jdx += 1
+
+            if jdx > num_rows * num_cols:
+                # Break from the loops if the maximum number of images have been plotted
+                break
+
+            ax = plt.subplot(num_rows, num_cols, jdx)
+            title = str(class_names[truth_idx]) + " : " + str(class_names[pred_idx])
+
+            title_obj = plt.title(title)
+            plt.setp(title_obj, color=color)
+            plt.axis("off")
+            plt.imshow(image_batch[idx].numpy().astype("uint8"))
+    return
+```
+
+#### 08-07-04 显示示例验证结果
+
+由于验证准确度约为 97%，因此我们预计 64 个样本中可能会出现一些错误。如下所示，存在两个错误分类。
+
+```python
+display_predictions(valid_dataset, model_vgg16_finetune, class_names)
+```
+
+```text
+(32, 224, 224, 3)
+1/1 [==============================] - 0s 15ms/step
+(32, 224, 224, 3)
+1/1 [==============================] - 0s 14ms/step
+```
+
+ ![](08_transfer_learning_and_fine_turning/download13.png)
+
+#### 08-07-05 显示样本测试结果
+
+对于测试数据集，我们看到有四个错误分类。请注意，在每种情况下，错误分类都涉及非常相似的标志（例如，指定的标志与测试样本具有相同的形状）。
+
+```python
+display_predictions(test_dataset, model_vgg16_finetune, class_names)
+```
+
+```text
+(32, 224, 224, 3)
+1/1 [==============================] - 0s 16ms/step
+(32, 224, 224, 3)
+1/1 [==============================] - 0s 14ms/step
+```
+
+ ![](08_transfer_learning_and_fine_turning/download14.png)
+
+### 08-08 结论
+
+微调预训练模型是一项强大的技术，可让您为自定义数据集重新调整模型的用途。 Keras 捆绑了许多预先训练的分类模型，使您可以方便地将模型加载到内存中并对其进行配置以进行微调。让我们总结一下微调预训练模型所需的关键步骤。
+
+在微调预训练模型时，我们仅加载模型的卷积基，该模型使用 ImageNet  权重进行初始化。我们“冻结”卷积基础的前几层，但允许训练最后几层（“微调”）。这些步骤是通过模型的可训练属性来完成的，以切换哪些层可训练，哪些层不可训练。要微调的层数是您需要进行试验的内容。分类器需要根据数据集重新定义，并使用随机权重进行初始化。通过这种方式，模型的初始状态有利于继续学习，使其能够适应新的数据集，并且比从头开始训练模型学习得更快（并且可能更好）。这种方法还允许将模型重新用于新的数据集，其数据量比从头开始训练模型所需的数据少得多。
