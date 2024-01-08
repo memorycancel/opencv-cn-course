@@ -3052,3 +3052,464 @@ display_predictions(test_dataset, model_vgg16_finetune, class_names)
 微调预训练模型是一项强大的技术，可让您为自定义数据集重新调整模型的用途。 Keras 捆绑了许多预先训练的分类模型，使您可以方便地将模型加载到内存中并对其进行配置以进行微调。让我们总结一下微调预训练模型所需的关键步骤。
 
 在微调预训练模型时，我们仅加载模型的卷积基，该模型使用 ImageNet  权重进行初始化。我们“冻结”卷积基础的前几层，但允许训练最后几层（“微调”）。这些步骤是通过模型的可训练属性来完成的，以切换哪些层可训练，哪些层不可训练。要微调的层数是您需要进行试验的内容。分类器需要根据数据集重新定义，并使用随机权重进行初始化。通过这种方式，模型的初始状态有利于继续学习，使其能够适应新的数据集，并且比从头开始训练模型学习得更快（并且可能更好）。这种方法还允许将模型重新用于新的数据集，其数据量比从头开始训练模型所需的数据少得多。
+
+
+
+## 09 语义图像分割
+
+<iframe width="899" height="506" src="https://www.youtube.com/embed/U4TnGPyoJaw" title="Use Pretrained Semantic Segmentation Models On tensorFlow Hub" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+在本笔记本中，我们将学习如何使用  TensorFlow Hub 中提供的预训练模型执行语义图像分割。 TensorFlow Hub  是一个库和平台，旨在共享、发现和重用预先训练的机器学习模型。 TensorFlow Hub  的主要目标是简化重用现有模型的过程，从而促进协作、减少冗余工作并加速机器学习的研究和开发。用户可以搜索由社区贡献或由 Google  提供的预训练模型（称为模块）。只需几行代码，这些模块就可以轻松集成到用户自己的机器学习项目中。
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download1.png)
+
+图像分割是一项基本的计算机视觉任务，涉及将图像划分为多个片段或区域，其中每个片段对应于特定的对象、感兴趣的区域或背景。通过简化图像的表示，分割技术可以更轻松地分析和处理各种应用的图像，例如对象识别、跟踪和场景理解。图像分割的目标是简化图像的表示并使其对于分析或进一步处理更有意义。您可以在我们关于该主题的介绍性文章中阅读有关图像分割的更多信息。
+
+在此示例中，我们将使用在 CamVid（剑桥驾驶标记视频数据库）上训练的图像分割模型 camvid-hrnetv2-w48，CamVid  是一个驾驶和场景理解数据集，包含从现实世界中拍摄的五个视频序列中提取的图像驾驶场景。该数据集包含 32  个类。此处还可以找到其他几种图像分割模型。
+
+### 09-00 目录
+
+1. 下载示例 (CamVid) 图片-Images)
+2. 使用 Tensorflow Hub 进行模型推理
+3. 正式实施
+4. 结论
+
+准备库
+
+```python
+import os
+import numpy as np
+import cv2
+import glob as glob
+
+import tensorflow as tf
+import tensorflow_hub as hub
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
+from zipfile import ZipFile
+from urllib.request import urlretrieve
+
+import warnings
+import logging
+import absl
+
+# Filter absl warnings
+warnings.filterwarnings("ignore", module="absl")
+
+# Capture all warnings in the logging system
+logging.captureWarnings(True)
+
+# Set the absl logger level to 'error' to suppress warnings
+absl_logger = logging.getLogger("absl")
+absl_logger.setLevel(logging.ERROR)
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+```
+
+### 09-01 下载示例 (CamVid) 图像
+
+```python
+def download_and_unzip(url, save_path):
+    print(f"Downloading and extracting assests....", end="")
+
+    # Downloading zip file using urllib package.
+    urlretrieve(url, save_path)
+
+    try:
+        # Extracting zip file using the zipfile package.
+        with ZipFile(save_path) as z:
+            # Extract ZIP file contents in the same directory.
+            z.extractall(os.path.split(save_path)[0])
+
+        print("Done")
+
+    except Exception as e:
+        print("\nInvalid file.", e)
+
+URL = r"https://www.dropbox.com/s/wad5js22fbeo1be/camvid_images.zip?dl=1"
+
+asset_zip_path = os.path.join(os.getcwd(), "camvid_images.zip")
+
+# Download if assest ZIP does not exists.
+if not os.path.exists(asset_zip_path):
+    download_and_unzip(URL, asset_zip_path)
+
+
+```
+
+#### 09-02-01 显示示例图像
+
+```python
+image_paths = sorted(glob.glob("camvid_images" + os.sep + "*.png"))
+
+for idx in range(len(image_paths)):
+    print(image_paths[idx])
+    
+def load_image(path):
+    image = cv2.imread(path)
+
+    # Convert image in BGR format to RGB.
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Add a batch dimension which is required by the model.
+    image = np.expand_dims(image, axis=0) / 255.0
+
+    return image
+
+
+
+images = []
+fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(16, 12))
+
+for idx, axis in enumerate(ax.flat):
+    image = load_image(image_paths[idx])
+    images.append(image)
+    axis.imshow(image[0])
+    axis.axis("off")
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download2.png)
+
+#### 09-03-02 定义将类 ID 映射到类名称和类颜色的字典
+
+class_index 是一个字典，它将 CamVid 数据集中的所有 32 个类与其关联的类 ID 和 RGB 颜色标签进行映射。
+
+```python
+class_index = \
+    {
+         0: [(64, 128, 64),  'Animal'],
+         1: [(192, 0, 128),  'Archway'],
+         2: [(0, 128, 192),  'Bicyclist'],
+         3: [(0, 128, 64),   'Bridge'],
+         4: [(128, 0, 0),    'Building'],
+         5: [(64, 0, 128),   'Car'],
+         6: [(64, 0, 192),   'Cart/Luggage/Pram'],
+         7: [(192, 128, 64), 'Child'],
+         8: [(192, 192, 128),'Column Pole'],
+         9: [(64, 64, 128),  'Fence'],
+        10: [(128, 0, 192),  'LaneMkgs Driv'],
+        11: [(192, 0, 64),   'LaneMkgs NonDriv'],
+        12: [(128, 128, 64), 'Misc Text'],
+        13: [(192, 0, 192),  'Motorcycle/Scooter'],
+        14: [(128, 64, 64),  'Other Moving'],
+        15: [(64, 192, 128), 'Parking Block'],
+        16: [(64, 64, 0),    'Pedestrian'],
+        17: [(128, 64, 128), 'Road'],
+        18: [(128, 128, 192),'Road Shoulder'],
+        19: [(0, 0, 192),    'Sidewalk'],
+        20: [(192, 128, 128),'Sign Symbol'],
+        21: [(128, 128, 128),'Sky'],
+        22: [(64, 128, 192), 'SUV/Pickup/Truck'],
+        23: [(0, 0, 64),     'Traffic Cone'],
+        24: [(0, 64, 64),    'Traffic Light'],
+        25: [(192, 64, 128), 'Train'],
+        26: [(128, 128, 0),  'Tree'],
+        27: [(192, 128, 192),'Truck/Bus'],
+        28: [(64, 0, 64),    'Tunnel'],
+        29: [(192, 192, 0),  'Vegetation Misc'],
+        30: [(0, 0, 0),      'Void'],
+        31: [(64, 192, 0),   'Wall']  
+    }
+```
+
+### 09-02 使用 TensorFlow Hub 进行模型推理
+
+TensorFlow Hub  包含许多不同的预训练分割模型。在这里，我们将使用在 CamVid (camvid-hrnetv2-w48) 上训练的高分辨率网络 (HRNet) 分割模型。该模型已在 Imagenet ILSVRC-2012 分类任务上进行了预训练，并在 CamVid 上进行了微调。
+
+#### 09-02-01 从 TensorFlow Hub 加载模型
+
+我们可以使用模型页面的 url 将模型加载到内存中。
+
+```python
+model_url = "https://tfhub.dev/google/HRNet/camvid-hrnetv2-w48/1"
+print("loading model:", model_url)
+
+seg_model = hub.load(model_url)
+print("\nmodel loaded!")
+
+# loading model: https://tfhub.dev/google/HRNet/camvid-hrnetv2-w48/1
+#model loaded!
+```
+
+#### 09-02-02 执行推理
+
+在我们正式化处理多个图像并对结果进行后处理的代码之前，我们首先看看如何对单个图像执行推理并研究模型的输出。
+
+##### 调用模型的 precict() 方法
+
+```python
+# Make a prediction using the first image in the list of images.
+pred_mask = seg_model.predict(images[0])
+
+# The predicted mask has the following shape: [B, H, W, C].
+print("Shape of predicted mask:", pred_mask.shape)
+# Shape of predicted mask: (1, 720, 960, 33)
+```
+
+##### 对预测的分割掩模进行后处理
+
+模型返回的预测分割掩码包含每个类别的单独通道。每个通道都包含输入图像中给定像素与该通道的类别相关联的概率。因此，这些数据需要进行一些后处理才能获得有意义的结果。需要执行几个步骤才能获得最终的视觉表示。
+
+1. 删除批次维度和背景类。
+2. 根据所有通道的最高概率得分，为图像中的每个像素分配一个类标签。
+3. 上一步生成一个单通道图像，其中包含每个像素的类标签。因此，我们需要将这些类 ID 映射到 RGB 值，以便我们可以将结果可视化为颜色编码的分割图。
+
+##### 删除批次维度和背景类
+
+```python
+# Convert tensor to numpy array.
+pred_mask = pred_mask.numpy()
+
+# The 1st label is the background class added by the model, but we can remove it for this dataset.
+pred_mask = pred_mask[:, :, :, 1:]
+
+# We also need to remove the batch dimension.
+pred_mask = np.squeeze(pred_mask)
+
+# Print the shape to confirm: [H, W, C].
+print("Shape of predicted mask after removal of batch dimension and background class:", pred_mask.shape)
+
+# Shape of predicted mask after removal of batch dimension and background class: (720, 960, 32)
+```
+
+##### 可视化中间结果
+
+```python
+# Each channel in `pred_mask` contains the probabilities that the pixels
+# in the original image are associated with the class for that channel.
+plt.figure(figsize=(20, 6))
+
+plt.subplot(1, 3, 1)
+plt.title("Input Image", fontsize=14)
+plt.imshow(np.squeeze(images[0]))
+
+plt.subplot(1, 3, 2)
+plt.title("Predictions for Class: Road", fontsize=14)
+plt.imshow(pred_mask[:, :, 17], cmap="gray") # Class 17 corresponds to the 'road' class
+plt.axis("off")
+
+plt.subplot(1, 3, 3)
+plt.title("Predictions for Class: Sky", fontsize=14)
+plt.imshow(pred_mask[:, :, 21], cmap="gray") # Class 21 corresponds to the 'sky' class
+plt.axis("off")
+# (-0.5, 959.5, 719.5, -0.5)
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download3.png)
+
+##### 为每个像素分配一个类标签
+
+在这里，我们根据概率最高的类别为图像中的每个像素分配一个类别 ID。我们可以将其可视化为灰度图像。在下面的代码单元中，我们将仅显示图像的顶部部分以突出显示一些类分配。
+
+```python
+# Assign each pixel in the image a class ID based on the channel that contains the
+# highest probability score. This can be implemented using the `argmax` function.
+pred_mask_class = np.argmax(pred_mask, axis=-1)
+
+plt.figure(figsize=(15, 5))
+
+plt.subplot(1, 2, 1)
+plt.title("Input Image", fontsize=12)
+plt.imshow(np.squeeze(images[0]))
+
+plt.subplot(1, 2, 2)
+plt.title("Segmentation Mask", fontsize=12)
+plt.imshow(pred_mask_class, cmap="gray")
+plt.gca().add_patch(Rectangle((450, 200), 200, 3, edgecolor="red", facecolor="none", lw=0.5))
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download4.png)
+
+现在让我们检查分割掩码的一小部分区域，以更好地了解这些值如何映射到类 ID。作为参考，分割掩码 (pred_mask_class) 的顶部（200 行）已覆盖在输入图像上。请注意，分割掩模中的区域对应于输入图像中的不同区域（例如建筑物、天空、树木）。
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download5.png)
+
+```python
+# Print the class IDs from the last row in the above image.
+print(pred_mask_class[200, 450:650])
+```
+
+```text
+#[ 4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4  4
+  4  4  4  4  4  4  4  4 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21
+ 26 26 21 21 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26 26
+ 26 26 26 26 26 26 26 26]
+```
+
+##### 将单通道蒙版转换为颜色表示
+
+我们还需要使用下面的函数将单个通道掩码转换为 RGB 表示形式以实现可视化目的。单通道掩码中的每个类ID将根据class_index字典映射转换为不同的颜色。
+
+```python
+# Function to convert a single channel mask representation to an RGB mask.
+def class_to_rgb(mask_class, class_index):
+    
+    # Create RGB channels.
+    r_map = np.zeros_like(mask_class).astype(np.uint8)
+    g_map = np.zeros_like(mask_class).astype(np.uint8)
+    b_map = np.zeros_like(mask_class).astype(np.uint8)
+
+    # Populate RGB color channels based on the color assigned to each class.
+    for class_id in range(len(class_index)):
+        index = mask_class == class_id
+        r_map[index] = class_index[class_id][0][0]
+        g_map[index] = class_index[class_id][0][1]
+        b_map[index] = class_index[class_id][0][2]
+
+    seg_map_rgb = np.stack([r_map, g_map, b_map], axis=2)
+
+    return seg_map_rgb
+```
+
+将灰度分割蒙版转换为颜色分割蒙版并显示结果。
+
+```python
+pred_mask_rgb = class_to_rgb(pred_mask_class, class_index)
+
+plt.figure(figsize=(20, 8))
+
+plt.subplot(1, 3, 1)
+plt.title("Input Image", fontsize=14)
+plt.imshow(np.squeeze(images[0]))
+plt.axis("off")
+
+plt.subplot(1, 3, 2)
+plt.title("Grayscale Segmentation", fontsize=14)
+plt.imshow(pred_mask_class, cmap="gray")
+plt.axis("off")
+
+plt.subplot(1, 3, 3)
+plt.title("Color Segmentation", fontsize=14)
+plt.imshow(pred_mask_rgb, cmap="gray")
+plt.axis("off")
+# (-0.5, 959.5, 719.5, -0.5)
+
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download6.png)
+
+### 09-03 正式实现
+
+在本节中，我们将正式实现并需要定义一些额外的便利函数。
+
+#### 09-03-01 `image_overlay()`
+
+image_overlay() 是一个辅助函数，用于在原始图像上叠加 RGB 蒙版，以更好地了解预测与原始图像的对齐方式。
+
+```python
+# Function to overlay a segmentation map on top of an RGB image.
+def image_overlay(image, seg_map_rgb):
+    
+    alpha = 1.0  # Transparency for the original image.
+    beta  = 0.6  # Transparency for the segmentation map.
+    gamma = 0.0  # Scalar added to each sum.
+
+    image = (image * 255.0).astype(np.uint8)
+    seg_map_rgb = cv2.cvtColor(seg_map_rgb, cv2.COLOR_RGB2BGR)
+
+    image = cv2.addWeighted(image, alpha, seg_map_rgb, beta, gamma)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    return image
+```
+
+#### 09-03-02 `run_inference()`
+
+为了对多个图像进行推理，我们定义了下面的函数，它接受图像列表和预训练的模型。该函数还处理计算最终分割掩模以及叠加所需的所有后处理。
+
+```python
+def run_inference(images, model):
+    for img in images:
+        # Forward pass through the model (convert the tensor output to a numpy array).
+        pred_mask = model.predict(img).numpy()
+
+        # Remove the background class added by the model.
+        pred_mask = pred_mask[:, :, :, 1:]
+
+        # Remove the batch dimension.
+        pred_mask = np.squeeze(pred_mask)
+
+        # `pred_mask` is a numpy array of shape [H, W, 32] where each channel contains the probability
+        # scores associated with a given class. We still need to assign a single class to each pixel
+        # which is accomplished using the argmax function across the last dimension to obtain the class labels.
+        pred_mask_class = np.argmax(pred_mask, axis=-1)
+
+        # Convert the predicted (class) segmentation map to a color segmentation map.
+        pred_mask_rgb = class_to_rgb(pred_mask_class, class_index)
+
+        fig = plt.figure(figsize=(20, 15))
+
+        # Display the original image.
+        ax1 = fig.add_subplot(1, 3, 1)
+        ax1.imshow(img[0])
+        ax1.title.set_text("Input Image")
+        plt.axis("off")
+
+        # Display the predicted color segmentation mask.
+        ax2 = fig.add_subplot(1, 3, 2)
+        ax2.set_title("Predicted Mask")
+        ax2.imshow(pred_mask_rgb)
+        plt.axis("off")
+
+        # Display the predicted color segmentation mask overlayed on the original image.
+        overlayed_image = image_overlay(img[0], pred_mask_rgb)
+        ax4 = fig.add_subplot(1, 3, 3)
+        ax4.set_title("Overlayed Image")
+        ax4.imshow(overlayed_image)
+        plt.axis("off")
+
+        plt.show()
+```
+
+#### 09-03-03 `plot_color_legend()`
+
+函数plot_color_legend()为CamVid数据集创建颜色图例，这有助于确认模型的类分配。
+
+```python
+def plot_color_legend(class_index):
+    # Extract colors and labels from class_index dictionary.
+    color_array = np.array([[v[0][0], v[0][1], v[0][2]] for v in class_index.values()]).astype(np.uint8)
+    class_labels = [val[1] for val in class_index.values()]
+
+    fig, ax = plt.subplots(nrows=2, ncols=16, figsize=(20, 3))
+    plt.subplots_adjust(wspace=0.5, hspace=0.01)
+
+    # Display color legend.
+    for i, axis in enumerate(ax.flat):
+        axis.imshow(color_array[i][None, None, :])
+        axis.set_title(class_labels[i], fontsize=8)
+        axis.axis("off")
+```
+
+```shell
+plot_color_legend(class_index)
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download7.png)
+
+#### 09-03-04 对样本图像进行预测
+
+现在，让我们使用这个函数，使用我们上面选择的三个模型对样本图像进行推理。
+
+```python
+run_inference(images, seg_model)
+```
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download8.png)
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download9.png)
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download10.png)
+
+ ![](09_introduction_to_semantic_segmentation_using_tensorflow_hub/download11.png)
+
+### 09-04 结论
+
+在本笔记本中，我们介绍了如何使用  TensorFlow Hub 中提供的预训练图像分割模型。 TensorFlow Hub  通过提供用于共享、发现和重用预先训练的机器学习模型的中央存储库，简化了重用现有模型的过程。使用这些模型的一个重要方面涉及理解解释其输出的过程。图像分割模型产生多通道分割掩模，其中包含需要进一步处理以生成最终分割图的概率分数。
