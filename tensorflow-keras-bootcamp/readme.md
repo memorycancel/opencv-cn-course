@@ -3513,3 +3513,518 @@ run_inference(images, seg_model)
 ### 09-04 结论
 
 在本笔记本中，我们介绍了如何使用  TensorFlow Hub 中提供的预训练图像分割模型。 TensorFlow Hub  通过提供用于共享、发现和重用预先训练的机器学习模型的中央存储库，简化了重用现有模型的过程。使用这些模型的一个重要方面涉及理解解释其输出的过程。图像分割模型产生多通道分割掩模，其中包含需要进一步处理以生成最终分割图的概率分数。
+
+
+
+## 10 物体检测
+
+<iframe width="872" height="491" src="https://www.youtube.com/embed/6CRn2Cktg6s" title="Use Pre trained Object Detection Models with TensorFlow Hub" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+### 使用 TensorFlow Hub 进行对象检测简介
+
+在本笔记本中，我们将学习如何使用 TensorFlow Hub 中提供的预训练模型执行对象检测。 TensorFlow Hub  是一个库和平台，旨在共享、发现和重用预先训练的机器学习模型。 TensorFlow Hub  的主要目标是简化重用现有模型的过程，从而促进协作、减少冗余工作并加速机器学习的研究和开发。用户可以搜索由社区贡献或由 Google  提供的预训练模型（称为模块）。只需几行代码，这些模块就可以轻松集成到用户自己的机器学习项目中。
+
+ ![](10_introduction_to_object_detection/download1.png)
+
+对象检测是计算机视觉的一个子领域，专注于识别和定位数字图像或视频中的特定对象。它不仅涉及对图像中存在的对象进行分类，还涉及通过在对象周围放置边界框或其他空间编码来确定它们的精确位置和大小。在此示例中，我们将使用模型 EfficientDet/d4，它来自称为 EfficientDet 的模型系列。 TensorFlow Hub  上提供的该系列的预训练模型均在 COCO 2017 数据集上进行了训练。该系列中的不同模型（从 D0 到  D7）在复杂性和输入图像尺寸方面有所不同。 D0 是最紧凑的模型，接受 512x512 像素的输入尺寸，并提供最快的推理速度。另一方面，我们有  D7，它需要 1536x1536 的输入大小，并且需要相当长的时间来执行推理。此处还可以找到其他几种对象检测模型。
+
+### 目录
+
+1. 下载示例图片
+2. 使用 Tensorflow Hub 进行模型推理
+3. 正式实施
+4. 结论
+
+```python
+import os
+import numpy as np
+import cv2
+import zipfile
+import requests
+import glob as glob
+
+import tensorflow_hub as hub
+import matplotlib
+import matplotlib.pyplot as plt
+import warnings
+import logging
+import absl
+
+# Filter absl warnings
+warnings.filterwarnings("ignore", module="absl")
+
+# Capture all warnings in the logging system
+logging.captureWarnings(True)
+
+# Set the absl logger level to 'error' to suppress warnings
+absl_logger = logging.getLogger("absl")
+absl_logger.setLevel(logging.ERROR)
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+```
+
+### 09-01 下载示例图片
+
+```python
+def download_file(url, save_name):
+    url = url
+    file = requests.get(url)
+
+    open(save_name, 'wb').write(file.content)
+   
+def unzip(zip_file=None):
+    try:
+        with zipfile.ZipFile(zip_file) as z:
+            z.extractall("./")
+            print("Extracted all")
+    except:
+        print("Invalid file")
+       
+download_file( 
+    'https://www.dropbox.com/s/h7l1lmhvga6miyo/object_detection_images.zip?dl=1',
+    'object_detection_images.zip'
+)
+
+unzip(zip_file='object_detection_images.zip')
+```
+
+#### 09-01-01 展示图片
+
+```python
+image_paths = sorted(glob.glob('object_detection_images' + '/*.png'))
+
+for idx in range(len(image_paths)):
+    print(image_paths[idx])
+def load_image(path):
+
+    image = cv2.imread(path)
+    
+    # Convert image in BGR format to RGB.
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    
+    # Add a batch dimension which is required by the model.
+    image = np.expand_dims(image, axis=0)
+    
+    return image
+
+images = []
+fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(20, 15))
+
+idx=0
+for axis in ax.flat:
+    image = load_image(image_paths[idx])
+    images.append(image)
+    axis.imshow(image[0])
+    axis.axis('off')
+    idx+=1
+```
+
+ ![](10_introduction_to_object_detection/download2.png)
+
+#### 09-01-02 定义将类 ID 映射到类名称的字典
+
+class_index 是一个字典，它将 COCO 数据集中 90 个类的类 ID 映射到类名称。
+
+```python
+class_index =  \
+{
+         1: 'person',
+         2: 'bicycle',
+         3: 'car',
+         4: 'motorcycle',
+         5: 'airplane',
+         6: 'bus',
+         7: 'train',
+         8: 'truck',
+         9: 'boat',
+         10: 'traffic light',
+         11: 'fire hydrant',
+         13: 'stop sign',
+         14: 'parking meter',
+         15: 'bench',
+         16: 'bird',
+         17: 'cat',
+         18: 'dog',
+         19: 'horse',
+         20: 'sheep',
+         21: 'cow',
+         22: 'elephant',
+         23: 'bear',
+         24: 'zebra',
+         25: 'giraffe',
+         27: 'backpack',
+         28: 'umbrella',
+         31: 'handbag',
+         32: 'tie',
+         33: 'suitcase',
+         34: 'frisbee',
+         35: 'skis',
+         36: 'snowboard',
+         37: 'sports ball',
+         38: 'kite',
+         39: 'baseball bat',
+         40: 'baseball glove',
+         41: 'skateboard',
+         42: 'surfboard',
+         43: 'tennis racket',
+         44: 'bottle',
+         46: 'wine glass',
+         47: 'cup',
+         48: 'fork',
+         49: 'knife',
+         50: 'spoon',
+         51: 'bowl',
+         52: 'banana',
+         53: 'apple',
+         54: 'sandwich',
+         55: 'orange',
+         56: 'broccoli',
+         57: 'carrot',
+         58: 'hot dog',
+         59: 'pizza',
+         60: 'donut',
+         61: 'cake',
+         62: 'chair',
+         63: 'couch',
+         64: 'potted plant',
+         65: 'bed',
+         67: 'dining table',
+         70: 'toilet',
+         72: 'tv',
+         73: 'laptop',
+         74: 'mouse',
+         75: 'remote',
+         76: 'keyboard',
+         77: 'cell phone',
+         78: 'microwave',
+         79: 'oven',
+         80: 'toaster',
+         81: 'sink',
+         82: 'refrigerator',
+         84: 'book',
+         85: 'clock',
+         86: 'vase',
+         87: 'scissors',
+         88: 'teddy bear',
+         89: 'hair drier',
+         90: 'toothbrush'
+}
+```
+
+在这里，我们将使用 COLOR_IDS 将每个类映射为唯一的 RGB 颜色。
+
+```python
+R = np.array(np.arange(96, 256, 32))
+G = np.roll(R, 1)
+B = np.roll(R, 2)
+
+COLOR_IDS = np.array(np.meshgrid(R, G, B)).T.reshape(-1, 3)
+```
+
+### 09-02 使用 Tensorflow Hub 进行模型推理
+
+TensorFlow Hub  包含许多不同的预训练对象检测模型。在这里，我们将使用在 COCO 2017 数据集上训练的 EfficientDet 类对象检测模型。  EfficientDet 模型有多个版本。 EfficientDet 系列物体检测器由多种具有不同复杂度和性能级别的模型组成，范围从 D0 到  D7。 EfficientDet 系列中各种模型之间的差异主要在于其架构、输入图像大小、计算要求和性能。
+
+#### 09-02-01 加载模型 
+
+```python
+EfficientDet  = {'EfficientDet D0 512x512'   : 'https://tfhub.dev/tensorflow/efficientdet/d0/1',
+                 'EfficientDet D1 640x640'   : 'https://tfhub.dev/tensorflow/efficientdet/d1/1',
+                 'EfficientDet D2 768x768'   : 'https://tfhub.dev/tensorflow/efficientdet/d2/1',
+                 'EfficientDet D3 896x896'   : 'https://tfhub.dev/tensorflow/efficientdet/d3/1',
+                 'EfficientDet D4 1024x1024' : 'https://tfhub.dev/tensorflow/efficientdet/d4/1',
+                 'EfficientDet D5 1280x1280' : 'https://tfhub.dev/tensorflow/efficientdet/d5/1',
+                 'EfficientDet D6 1280x1280' : 'https://tfhub.dev/tensorflow/efficientdet/d6/1',
+                 'EfficientDet D7 1536x1536' : 'https://tfhub.dev/tensorflow/efficientdet/d7/1'
+                }
+```
+
+这里我们将使用 D4 模型。
+
+```python
+model_url = EfficientDet['EfficientDet D4 1024x1024' ]
+
+print('loading model: ', model_url)
+od_model = hub.load(model_url)
+
+print('\nmodel loaded!')
+```
+
+```text
+loading model:  https://tfhub.dev/tensorflow/efficientdet/d4/1
+Metal device set to: Apple M1 Max
+
+model loaded!
+```
+
+#### 09-02-02 执行推理
+
+在我们正式化处理多个图像并对结果进行后处理的代码之前，我们首先看看如何对单个图像执行推理并研究模型的输出。
+
+##### 调用模型
+
+```python
+# Call the model. # The model returns the detection results in the form of a dictionary.
+results = od_model(images[0])
+```
+
+##### 检查结果
+
+```python
+# Convert the dictionary values to numpy arrays.
+results = {key:value.numpy() for key, value in results.items()}
+
+# Print the keys from the results dictionary.
+for key in results:
+    print(key) 
+```
+
+```text
+detection_anchor_indices
+detection_boxes
+detection_classes
+detection_multiclass_scores
+detection_scores
+num_detections
+raw_detection_boxes
+raw_detection_scores
+```
+
+请注意，该模型有多个字典键，可用于访问各种类型的检测数据。与许多其他对象检测模型一样，EfficientDet  为每个输入图像生成大量原始检测（边界框和相应的类别分数）。许多原始检测都是冗余、重叠或置信度较低的。为了获得有意义的结果，在模型中应用后处理技术来过滤和细化这些原始检测。出于我们的目的，我们只对模型中已进行后处理的检测感兴趣，这些检测可在以 detector_ 开头的字典键中找到。
+
+在下面的代码单元中，我们显示有数千个原始检测，而有 16 个最终检测。这些最终检测中的每一个都有一个相关的置信度分数，我们可能希望根据应用程序的性质进一步过滤该分数。
+
+```python
+print('Num Raw Detections: ', (len(results['raw_detection_scores'][0])))
+print('Num Detections:     ', (results['num_detections'][0]).astype(int))
+```
+
+```text
+Num Raw Detections:  196416
+Num Detections:      16
+```
+
+现在让我们检查所有 16 次检测的部分检测数据。请注意，检测结果按置信度从最高到最低的顺序排序。
+
+```python
+# Print the Scores, Classes and Bounding Boxes for the detections.
+num_dets = (results['num_detections'][0]).astype(int)
+
+print('\nDetection Scores: \n\n', results['detection_scores'][0][0:num_dets])
+print('\nDetection Classes: \n\n', results['detection_classes'][0][0:num_dets])
+print('\nDetection Boxes: \n\n', results['detection_boxes'][0][0:num_dets])
+```
+
+```text
+Detection Scores: 
+
+ [0.9053347  0.8789406  0.7202968  0.35475922 0.2805733  0.17851698
+ 0.15169667 0.14905979 0.14454156 0.13584    0.12682638 0.11745102
+ 0.10781792 0.10152479 0.10052315 0.09746186]
+
+Detection Classes: 
+
+ [ 2. 18.  8.  3. 64. 64.  2. 18. 64. 64. 64.  4. 64. 44. 64. 77.]
+
+Detection Boxes: 
+
+ [[0.16487242 0.15703079 0.7441227  0.74429274]
+ [0.3536     0.16668764 0.9776781  0.40675405]
+ [0.06442685 0.61166453 0.25209486 0.8956611 ]
+ [0.06630661 0.611912   0.25146762 0.89877594]
+ [0.08410528 0.06995308 0.18153256 0.13178551]
+ [0.13754636 0.89751065 0.22187063 0.9401711 ]
+ [0.34510636 0.16857824 0.97165954 0.40917954]
+ [0.18023838 0.15531728 0.7696747  0.7740346 ]
+ [0.087889   0.06875686 0.18782085 0.10366233]
+ [0.00896974 0.11013152 0.0894229  0.15709913]
+ [0.08782443 0.08899567 0.16129945 0.13988526]
+ [0.16456181 0.1708141  0.72982967 0.75529355]
+ [0.06907014 0.8944937  0.22174956 0.9605442 ]
+ [0.30221778 0.10927744 0.33091408 0.15160759]
+ [0.11132257 0.09432659 0.16303536 0.12937708]
+ [0.133767   0.5592607  0.18178582 0.5844183 ]]
+```
+
+##### 后处理和显示检测
+
+在这里，我们展示了如何解释单个图像的检测数据的逻辑。正如我们上面所示，模型返回了 16 个检测，但是，许多检测的置信度分数较低，因此，我们需要使用最小检测阈值进一步过滤这些检测。
+
+1. 从结果字典中检索检测结果
+2. 应用最小检测阈值来过滤检测
+3. 对于每个阈值检测，显示边界框和指示检测到的类别和检测置信度的标签。
+
+```python
+def process_detection(image, results,  min_det_thresh=.3):
+
+    # Extract the detection results from the results dictionary.
+    scores  =  results['detection_scores'][0]
+    boxes   =  results['detection_boxes'][0]
+    classes = (results['detection_classes'][0]).astype(int)
+
+    # Set a minimum detection threshold to post-process the detection results.
+    min_det_thresh = min_det_thresh
+
+    # Get the detections whose scores exceed the minimum detection threshold.
+    det_indices = np.where(scores >= min_det_thresh)[0]
+
+    scores_thresh  = scores[det_indices]
+    boxes_thresh   = boxes[det_indices]
+    classes_thresh = classes[det_indices]
+
+    # Make a copy of the image to annotate.
+    img_bbox = image.copy()
+
+    im_height, im_width = image.shape[:2]
+
+    font_scale = .6
+    box_thickness = 2
+
+    # Loop over all thresholded detections.
+    for box, class_id, score in zip(boxes_thresh, classes_thresh, scores_thresh):
+
+        # Get bounding box normalized coordiantes.
+        ymin, xmin, ymax, xmax = box
+
+        class_name = class_index[class_id]
+
+        # Convert normalized bounding box coordinates to pixel coordinates.
+        (left, right, top, bottom) = (int(xmin * im_width), 
+                                      int(xmax * im_width), 
+                                      int(ymin * im_height), 
+                                      int(ymax * im_height))
+
+        # Annotate the image with the bounding box.
+        color = tuple(COLOR_IDS[class_id % len(COLOR_IDS)].tolist())[::-1]
+        img_bbox = cv2.rectangle(img_bbox, (left, top), (right, bottom), color, thickness=box_thickness)
+
+        #-------------------------------------------------------------------
+        # Annotate bounding box with detection data (class name and score).
+        #-------------------------------------------------------------------
+
+        # Build the text string that contains the class name and score associated with this detection.
+        display_txt = '{}: {:.2f}%'.format(class_name, 100 * score)
+        ((text_width, text_height), _) = cv2.getTextSize(display_txt, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        
+        # Handle case when the label is above the image frame.
+        if top < text_height:
+            shift_down = int(2*(1.3*text_height))
+        else:
+            shift_down = 0
+        
+        # Draw a filled rectangle on which the detection results will be displayed.
+        img_bbox = cv2.rectangle(img_bbox, 
+                                 (left-1, top-box_thickness - int(1.3*text_height) + shift_down), 
+                                 (left-1 + int(1.1 * text_width), top),               
+                                 color, 
+                                 thickness=-1)
+
+        # Annotate the filled rectangle with text (class label and score).
+        img_bbox = cv2.putText(img_bbox, 
+                               display_txt,
+                               (left + int(.05*text_width), top - int(0.2*text_height) + int(shift_down/2)),
+                               cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 1)
+    return img_bbox
+```
+
+##### 显示 min_det_thresh=0 的结果
+
+首先，我们使用最小检测阈值 0 来处理图像，以查看模型针对所有 16 次检测返回的结果。由于我们没有过滤结果，因此我们预计可能会有一些冗余和/或错误的检测。
+
+```python
+# Call the model.
+results = od_model(images[0])
+
+# Convert the dictionary values to numpy arrays.
+results = {key:value.numpy() for key, value in results.items()}
+
+# Remove the batch dimension from the first image.
+image = np.squeeze(images[0])
+
+# Process the first sample image.
+img_bbox = process_detection(image, results, min_det_thresh=0)
+
+plt.figure(figsize=[15, 10])
+plt.imshow(img_bbox)
+plt.axis('off');
+```
+
+ ![](10_introduction_to_object_detection/download3.png)
+
+上面的结果显示了模型返回的所有检测，因为我们没有应用检测阈值来过滤它们。然而，请注意，所有错误标记的检测的置信度也非常低。因此，始终建议对模型生成的结果应用最小检测阈值。您需要根据数据和应用程序对阈值进行试验，但一般来说，0.3 到 0.5 之间的值是一个很好的经验法则。
+
+##### 显示 min_det_thresh=0.3 的结果
+
+现在让我们应用检测阈值来过滤结果。
+
+```python
+img_bbox = process_detection(image, results, min_det_thresh=.3)
+
+plt.figure(figsize=[15, 10])
+plt.imshow(img_bbox)
+plt.axis('off');
+```
+
+ ![](10_introduction_to_object_detection/download4.png)
+
+如上所示，最小检测阈值 0.3 可过滤掉所有错误标记的检测。如果你仔细观察，你会发现汽车有一个额外的（冗余的）检测。
+
+### 09-03 正式实施
+
+在本节中，我们将形式化实现并创建一个方便的函数来在图像列表上执行模型。如文档中所述，该系列中的模型不支持“批处理”。这意味着我们需要为每个图像调用一次模型。但请注意，图像的输入形状确实需要批量尺寸。
+
+#### 09-03-01 `run_inference()`
+
+run_inference() 是一个辅助函数，它将为图像列表中的每个图像调用模型。
+
+```python
+def run_inference(images, model):
+    
+    results_list = []
+    for img in images:
+        result = model(img)
+        result = {key:value.numpy() for key,value in result.items()}
+
+        results_list.append(result)
+
+    return results_list
+
+# Perform inference on each image and store the results in a list.
+results_list = run_inference(images, od_model)
+```
+
+接下来，我们循环每个图像并使用模型的结果来注释图像的副本，该副本将显示在控制台上。
+
+```python
+for idx in range(len(images)):
+      
+    # Remove the batch dimension.
+    image = np.squeeze(images[idx])
+    
+    # Generate the annotated image.
+    image_bbox = process_detection(image, results_list[idx], min_det_thresh=.31)
+        
+    # Display annotated image.
+    plt.figure(figsize=[20,10*len(images)])
+    plt.subplot(len(images),1,idx+1)
+    plt.imshow(image_bbox)
+    plt.axis('off')
+```
+
+ ![](10_introduction_to_object_detection/download5.png)
+
+ ![](10_introduction_to_object_detection/download6.png)
+
+ ![](10_introduction_to_object_detection/download7.png)
+
+ ![](10_introduction_to_object_detection/download8.png)
+
+### 09-04 结论
+
+在这篇文章中，我们介绍了如何使用  TensorFlow Hub 中提供的预训练对象检测模型。 TensorFlow Hub  通过提供用于共享、发现和重用预先训练的机器学习模型的中央存储库，简化了重用现有模型的过程。使用这些模型的一个重要方面涉及解释它们的输出。其中一个关键方面是应用检测阈值来过滤模型生成的结果。设置适当的检测阈值通常需要进行实验，并且在很大程度上取决于应用程序的类型。在此示例中，我们使用 EfficienDet 系列中的 D4 模型。但是，如果您的应用程序需要更快的推理速度，则应考虑较小的模型（D0 至 D3）。
+
+TensorFlow Hub资源：
+
+- [TensorFlow Hub Object Detection](https://www.tensorflow.org/hub/tutorials/tf2_object_detection)
+- [Tensorflow Hub](https://www.tensorflow.org/hub)
+- [Publishing models](https://www.tensorflow.org/hub/publish)
