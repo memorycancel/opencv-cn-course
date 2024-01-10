@@ -2,11 +2,11 @@
 
 原教程地址：[https://courses.opencv.org/](https://courses.opencv.org/)
 
-| 教程                     | 教程和代码文件夹          | open |
-| ------------------------ | ------------------------- | ---- |
-| opencv入门训练营         | opencv-python-bootcamp    | free |
-| python基础               | python-for-beginners      | free |
-| tensorflow深度学习训练营 | tensorflow-keras-bootcamp | free |
+| 教程                     | 教程和代码文件夹          | open | cert|
+| ------------------------ | ------------------------- | ---- |-----------------------|
+| opencv入门训练营         | opencv-python-bootcamp    | free | https://courses.opencv.org/certificates/d60a5b7ddf854298877de7e2b3d7bca6|
+| python基础               | python-for-beginners      | free | |
+| tensorflow深度学习训练营 | tensorflow-keras-bootcamp | free | https://courses.opencv.org/certificates/bfd263f66643433097e8b945cc40835a|
 
 PS: 本教程仅供交流学习用，不接受商业转载，非商业转载请标明作者和原文章链接。
 
